@@ -9,16 +9,19 @@ services:
     container_name: collabflow_app
     restart: unless-stopped
     ports:
-      # Map host ports to container ports
+      # Map host ports to container ports using variables from .env
       # Format: HOST:CONTAINER
-      - "3000:3000" # Next.js App (HTTP)
+      - "${HOST_PORT}:${PORT}" # e.g., "8080:8080"
       - "2222:22"   # SSH for Git (use a non-standard port on the host)
       # Add HTTPS mapping later if you set up a proxy or direct HTTPS in Node
       # - "443:443"
     environment:
       # Pass environment variables needed at runtime
+      # PORT from .env will override Dockerfile ENV default
+      - PORT=${PORT}
+      # Pass HOST_PORT if the application needs to know its external port (less common)
+      # - HOST_PORT=${HOST_PORT}
       - NODE_ENV=production
-      - PORT=3000
       - GIT_PROJECT_ROOT=/app/projects
       - SQLITE_DB_PATH=/app/data/collabflow.db
       - AUTHORIZED_KEYS_PATH=/app/.ssh/authorized_keys

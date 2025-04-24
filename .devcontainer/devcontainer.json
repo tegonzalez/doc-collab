@@ -1,0 +1,56 @@
+{
+  "name": "CollabFlow Dev Container",
+
+  // Configure Docker Compose setup
+  "dockerComposeFile": [
+    "../docker-compose.yml",   // Path relative to devcontainer.json
+    "docker-compose.dev.yml"   // Path relative to devcontainer.json
+  ],
+
+  // The service defined in docker-compose.yml to connect VS Code to
+  "service": "collabflow",
+
+  // The path in the container where the project folder will be mounted.
+  // This should match the target path of the source code volume mount
+  // defined in docker-compose.dev.yml.
+  "workspaceFolder": "/app",
+
+  // Use 'forwardPorts' to make ports available locally.
+  // Forward the default HOST_PORT (8080) and the SSH port (2222)
+  "forwardPorts": [8080, 2222],
+
+  // Optional: Add VS Code settings specifically for this container
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash"
+    // Add any other project-specific settings here
+    // e.g., "editor.formatOnSave": true,
+    // "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" }
+  },
+
+  // Optional: Install VS Code extensions within the container
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint", // ESLint
+        "esbenp.prettier-vscode", // Prettier
+        "prisma.prisma",          // Prisma ORM (if used)
+        "ms-azuretools.vscode-docker", // Docker extension
+        "github.vscode-github-actions", // GitHub Actions
+        "github.copilot",         // GitHub Copilot (if you use it)
+        "firsttris.vscode-jest-runner" // Jest Runner (if used)
+        // Add other relevant extensions based on project needs
+      ]
+    }
+  },
+
+  // Run commands after the container is created but before VS Code attaches.
+  // Use this to install dependencies leveraging the node_modules volume cache.
+  "postCreateCommand": "npm install",
+
+  // Set the user VS Code should connect as. Matches the default user in the base image.
+  "remoteUser": "node"
+
+  // Optional: Uncomment the next line if you want to keep the container running
+  // even after closing VS Code. Requires Docker Desktop settings adjustment.
+  // "shutdownAction": "none"
+} 

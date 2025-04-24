@@ -1,0 +1,50 @@
+# .devcontainer/docker-compose.dev.yml
+version: '3.8'
+
+services:
+  collabflow:
+    build:
+      # Explicitly set context using the workspace folder variable
+      context: ${localWorkspaceFolder} # Should resolve to project root
+      dockerfile: Dockerfile # Path relative to context (project root)
+      target: base # Build only the 'base' stage
+    # Override or extend settings from the main docker-compose.yml
+    volumes:
+      # Mount the project root directory into the container at /app
+      # This allows live code changes to be reflected inside the container
+      - ..:/app:cached # Mount project root (one level up from .devcontainer) to /app
+      # Define persistent named volumes for node_modules and .next
+      # This prevents the host's node_modules/build artifacts from overwriting
+      # those potentially built inside the container during setup,
+      # and persists them across container rebuilds.
+      - node_modules:/app/node_modules
+      - next_build:/app/.next
+      # Also ensure the persistent volumes from the original compose file are still mapped
+      - collabflow_projects:/app/projects
+      - collabflow_data:/app/data
+      - collabflow_ssh_keys:/app/.ssh
+
+    # Override the command to keep the container running for development
+    # instead of immediately starting the production server.
+    # 'sleep infinity' is a common pattern for dev containers.
+    # The user will typically start the dev server manually (e.g., 'npm run dev')
+    # from the integrated terminal within VS Code.
+    # Note: The ENTRYPOINT from the Dockerfile (/usr/local/bin/entrypoint.sh)
+    # might still run. We need to ensure it doesn't interfere or exit prematurely.
+    # If entrypoint.sh expects 'start' or similar, this might need adjustment.
+    # For now, let's assume overriding CMD is sufficient. If issues arise,
+    # we might need to override entrypoint as well (e.g., entrypoint: ["/bin/bash"]).
+    command: sleep infinity
+
+    # Optional: Expose additional ports if needed for debugging, etc.
+    # ports:
+    #   - "9229:9229" # Node.js debug port
+
+volumes:
+  # Define the named volumes used for caching node_modules and .next
+  node_modules:
+  next_build:
+  # Ensure the original named volumes are also declared here if not using external:true
+  collabflow_projects:
+  collabflow_data:
+  collabflow_ssh_keys: 

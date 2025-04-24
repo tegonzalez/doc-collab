@@ -1,70 +1,67 @@
 # --- Stage 1: Base Image with Dependencies ---
-FROM alpine:3.19 AS base
+# Use official Node.js image based on Debian Bookworm Slim for better ARM64 support
+FROM node:20-bookworm-slim AS base
 LABEL maintainer="Your Name <your.email@example.com>"
 
-# Install essential packages: sudo (for user creation/sshd), bash, coreutils, curl, openssh (for git server), git, sqlite, pandoc
-# Pandoc on Alpine needs specific dependencies from testing repo sometimes
-# Install Node.js via node version manager (nvm) for better version control
-ENV NODE_VERSION=20.12.2
-ENV NVM_DIR=/usr/local/nvm
+# Set Debian frontend to noninteractive to avoid prompts
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apk update && \
-    apk add --no-cache \
-        bash \
-        build-base \
-        coreutils \
-        curl \
-        git \
-        libstdc++ \
-        linux-headers \
-        openssh \
-        python3 \
-        sqlite \
-        sudo \
-        tzdata \
-        # Pandoc dependencies (might need adjustment based on specific pandoc features used)
-        gmp \
-        zlib \
-        # Pandoc itself
-        pandoc \
-        && \
-    # Install NVM and Node.js
-    mkdir -p $NVM_DIR && \
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash && \
-    . $NVM_DIR/nvm.sh && \
-    nvm install $NODE_VERSION && \
-    nvm alias default $NODE_VERSION && \
-    nvm use default && \
-    # Link node and npm to /usr/local/bin
-    ln -s $NVM_DIR/versions/node/v$NODE_VERSION/bin/node /usr/local/bin/node && \
-    ln -s $NVM_DIR/versions/node/v$NODE_VERSION/bin/npm /usr/local/bin/npm && \
-    ln -s $NVM_DIR/versions/node/v$NODE_VERSION/bin/npx /usr/local/bin/npx && \
-    # Clean up apk cache
-    rm -rf /var/cache/apk/*
+# Install essential OS packages using apt-get
+# Note: build-essential includes make, g++, etc.
+# Node.js and npm are already included in the base image.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    build-essential \
+    coreutils \
+    curl \
+    git \
+    # libstdc++ is usually part of build-essential/gcc
+    # linux-headers might not be needed unless building kernel modules
+    openssh-client \
+    openssh-server \
+    # python3 is often needed for node-gyp
+    python3 \
+    sqlite3 \
+    sudo \
+    tzdata \
+    # gmp might be needed by pandoc or other libs
+    libgmp10 \
+    # zlib is usually present, but explicitly adding doesn't hurt
+    zlib1g \
+    pandoc \
+    supervisor \
+    # Clean up apt cache
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set Node.js environment variables
-ENV NODE_PATH $NVM_DIR/versions/node/v$NODE_VERSION/lib/node_modules
-ENV PATH      $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+# Restore interactive frontend
+ENV DEBIAN_FRONTEND=dialog
+
+# Copy Git setup script and make it executable early
+COPY docker/setup_git.sh /usr/local/bin/setup_git.sh
+RUN chmod +x /usr/local/bin/setup_git.sh
+
+# PATH should be correctly set by the base node image
+# ENV PATH=...
+
+# Set working directory and copy package files
+WORKDIR /app
+COPY package.json package-lock.json* ./
 
 # --- Stage 2: Build Next.js Application ---
 FROM base AS builder
-WORKDIR /app
+# WORKDIR /app # Inherited
+# COPY package.json package-lock.json* ./ # Inherited
 
-# Copy package.json and lock file first for dependency caching
-COPY package.json package-lock.json* ./
-
-# Install dependencies (using npm ci for faster, reproducible builds)
-# Ensure Python3 is available for node-gyp if needed by dependencies
-RUN apk add --no-cache --virtual .gyp python3 make g++ && \
-    npm ci && \
-    apk del .gyp
+# Install/Build application dependencies using npm from the base image
+# python3/make/g++ etc are available from build-essential
+RUN npm ci
 
 # Copy the rest of the application code
 COPY . .
 
 # Build the Next.js application
-# Set NEXT_TELEMETRY_DISABLED to avoid telemetry during build
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 # Remove development dependencies
@@ -74,63 +71,49 @@ RUN npm prune --production
 FROM base AS production
 WORKDIR /app
 
-# Create a non-root user for security
-ARG APP_USER=collabflow
-ARG APP_UID=1001
-ARG APP_GID=1001
-RUN addgroup -g ${APP_GID} ${APP_USER} && \
-    adduser -u ${APP_UID} -G ${APP_USER} -h /app -s /bin/bash -D ${APP_USER} && \
-    # Grant sudo permission *only* for starting sshd
-    echo "${APP_USER} ALL=(ALL) NOPASSWD: /usr/sbin/sshd" >> /etc/sudoers && \
-    # Ensure sudoers file has correct permissions
-    chmod 0440 /etc/sudoers && \
-    # Ensure /app directory exists and is owned by the app user
-    mkdir -p /app /app/projects /app/data /app/.ssh && \
-    chown -R ${APP_USER}:${APP_USER} /app
+# Copy supervisor config
+COPY docker/supervisord.conf /etc/supervisor/conf.d/collabflow.conf
 
-# Copy built application from builder stage
-COPY --from=builder --chown=${APP_USER}:${APP_USER} /app/.next ./.next
-COPY --from=builder --chown=${APP_USER}:${APP_USER} /app/node_modules ./node_modules
-COPY --from=builder --chown=${APP_USER}:${APP_USER} /app/package.json ./package.json
-COPY --from=builder --chown=${APP_USER}:${APP_USER} /app/public ./public # Copy public assets
+# The base image provides user 'node' (UID/GID 1000). We will use this user.
+# Ensure data directories exist and set ownership.
+# Git setup will be run via supervisor as the 'node' user.
+RUN mkdir -p /app/projects /app/data /app/.ssh && \
+    chown -R node:node /app/projects /app/data /app/.ssh
 
-# Copy entrypoint script and Git setup script
-COPY --chown=${APP_USER}:${APP_USER} docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-COPY --chown=${APP_USER}:${APP_USER} docker/setup_git.sh /usr/local/bin/setup_git.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/setup_git.sh
+# Copy necessary artifacts from builder stage
+COPY --from=builder --chown=node:node /app/.next ./.next
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/package.json ./package.json
+COPY --from=builder --chown=node:node /app/public ./public
 
-# SSH Server Configuration (as root before switching user)
+# Entrypoint script is no longer needed
+
+# SSH Server Configuration (run as root)
 RUN mkdir -p /var/run/sshd && \
-    # Configure sshd_config (consider security hardening)
-    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
-    sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \
-    sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
-    # Ensure AuthorizedKeysFile points inside our app user's home relative to homedir (/app) -> /app/.ssh/authorized_keys
-    # Correct path should be absolute or relative to user's home
-    echo "AuthorizedKeysFile /app/.ssh/authorized_keys" >> /etc/ssh/sshd_config && 
-    # Ensure SSH host keys are generated if they don't exist
+    # Configure sshd_config (ensure necessary settings)
+    sed -i 's/^#?PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config && \
+    sed -i 's/^#?PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config && \
+    sed -i 's/^#?PubkeyAuthentication .*/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
+    # Ensure AuthorizedKeysFile points inside our app user's home
+    # Check if line exists before adding
+    grep -qxF 'AuthorizedKeysFile /app/.ssh/authorized_keys' /etc/ssh/sshd_config || echo "AuthorizedKeysFile /app/.ssh/authorized_keys" >> /etc/ssh/sshd_config && \
+    # Ensure SSH host keys are generated
     ssh-keygen -A
 
-# Environment variables
+# Environment variables for the production stage
+ENV PORT=8080
 ENV NODE_ENV=production
-ENV PORT=3000
 ENV GIT_PROJECT_ROOT=/app/projects
 ENV SQLITE_DB_PATH=/app/data/collabflow.db
 ENV AUTHORIZED_KEYS_PATH=/app/.ssh/authorized_keys
-# Add any other runtime environment variables needed by your app
 
 # Expose ports
-EXPOSE ${PORT} # Next.js app
-EXPOSE 22     # SSH for Git
+EXPOSE ${PORT}
+EXPOSE 22
 
-# Set the user *after* all root operations are done
-USER ${APP_USER}
-
-# Persist data volumes
+# Volume definitions (remain the same)
 VOLUME ["/app/projects", "/app/data", "/app/.ssh"]
 
-# Set the entrypoint script
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-
-# Default command (starts Next.js app)
-CMD ["start"]
+# Run supervisord as the default command
+# USER directive removed, supervisor runs as root
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]

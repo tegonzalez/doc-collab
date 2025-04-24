@@ -22,10 +22,18 @@ This is the recommended method for deployment.
 
 **Prerequisites:** Docker installed.
 
+**Container Configuration:**
+
+*   **Node.js:** The container uses Node.js v20.x included in the official `node:20-bookworm-slim` base image.
+*   **User:** The container runs as the standard non-root user `node` (UID/GID 1000) provided by the base image.
+*   **Permissions:** The container runs with fixed UID/GID 1000. If you encounter permission issues with host-mounted volumes, you may need to adjust permissions on the host manually.
+*   **Port:** The host port mapping and internal container port default to 8080. These can be configured by creating a `.env` file in the project root and setting the `HOST_PORT` and `PORT` variables (e.g., `HOST_PORT=8080`, `PORT=8080`).
+*   **Process Management:** The container uses `supervisord` to manage the `sshd` (running as root) and the Node.js application (running as user `node`).
+
 **Build:**
 
 ```bash
-# Using Docker Compose (recommended for local testing)
+# Using Docker Compose (recommended for local testing/deployment)
 docker-compose build
 
 # Or using Docker directly
@@ -35,24 +43,27 @@ docker build -t collabflow-app:latest .
 **Run (Docker Compose):**
 
 ```bash
-# Start in detached mode
+# Start in detached mode (uses HOST_PORT and PORT from .env)
 docker-compose up -d
 
 # Access:
-# - Web UI: http://localhost:3000
-# - Git SSH: ssh://<USER>@localhost:2222/app/projects/main-project.git
-#   (Replace <USER> with container user, default 'collabflow'. Manage keys in volume 'collabflow_ssh_keys')
+# - Web UI: http://localhost:8080 # Or your configured HOST_PORT
+# - Git SSH: ssh://node@localhost:2222/<project-name>.git 
+#   (Username is 'node'. Manage keys in volume 'collabflow_ssh_keys')
 ```
 
 **Run (Docker):**
 
 ```bash
+# Container runs as user 'node' (UID/GID 1000)
 docker run -d --name collabflow_app \
-  -p 3000:3000 \
+  -p <HOST_PORT>:8080 \
   -p 2222:22 \
   -v collabflow_projects:/app/projects \
   -v collabflow_data:/app/data \
   -v collabflow_ssh_keys:/app/.ssh \
+  # Pass internal PORT environment variable if overriding the default 8080
+  -e PORT=8080 \
   -e NODE_ENV=production \
   collabflow-app:latest
 ```
@@ -109,14 +120,53 @@ npm run start
 
 The application will run, serving the web UI on the configured `PORT` and relying on the system's `sshd` for Git access. Ensure the user running the Node.js process has correct permissions for Git repositories, SQLite DB, and SSH keys.
 
+### 3. VS Code Dev Container (Recommended for Development)
+
+This method provides a consistent, containerized development environment using the same Docker setup.
+
+**Prerequisites:**
+*   Docker (or compatible, e.g., OrbStack) installed and running.
+*   Visual Studio Code installed.
+*   VS Code "Dev Containers" extension installed (ID: `ms-vscode-remote.remote-containers`).
+
+**Setup:**
+
+1.  Clone the repository:
+    ```bash
+    git clone <repository_url>
+    cd collabflow
+    ```
+2.  Open the cloned `collabflow` folder in VS Code.
+3.  VS Code should automatically detect the `.devcontainer/devcontainer.json` file and prompt you to "Reopen in Container". Click this button.
+    *   If the prompt doesn't appear, open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`), search for "Dev Containers: Reopen in Container", and select it.
+4.  VS Code will build the Docker image (if not already built) and start the necessary containers defined in the `docker-compose.yml` and `.devcontainer/docker-compose.dev.yml` files. This might take a few minutes on the first run.
+5.  Once the container is ready, VS Code will connect to it. Your workspace files will be mounted inside the container at `/app`, and any configured extensions will be installed.
+
+**Running the Development Server:**
+
+*   Open the integrated terminal in VS Code (`Ctrl+` ` or `Cmd+ `` `). This terminal is running *inside* the dev container.
+*   Run the development server:
+    ```bash
+    npm run dev
+    ```
+*   Access the running application in your browser: `http://localhost:8080` (or your configured HOST_PORT, automatically forwarded).
+*   Git SSH access for the container is available on `localhost:2222` (connect as user `node`).
+
 ## Development
 
+The recommended way to develop this project is using the **VS Code Dev Container** setup described above. It ensures a consistent environment matching the deployment setup and handles dependencies automatically. The container runs as the standard `node` user.
+
+If you prefer not to use the Dev Container:
+
 ```bash
-# Install dependencies
+# Install dependencies (on your host machine)
 npm install
+
+# Create a .env.local file and set PORT=8080 (or your desired port)
+# If needed for host development
 
 # Run development server (with hot-reloading)
 npm run dev
 
-# Access: http://localhost:3000 (or configured port)
+# Access: http://localhost:8080 (or configured port)
 ```
