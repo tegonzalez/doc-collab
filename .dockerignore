@@ -1,0 +1,39 @@
+# Git files
+.git
+.gitignore
+
+# Node modules
+node_modules
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Build artifacts
+.next
+build
+dist
+
+# OS files
+.DS_Store
+*.swp
+
+# Secrets / Config
+.env*
+*.pem
+*.key
+secrets/
+
+# Logs
+logs
+*.log
+
+# Documentation / Temp
+docs/
+tmp/
+
+# IDE specific
+.vscode
+.idea
+*.iml

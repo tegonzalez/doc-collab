@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  collabflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: collabflow-app:latest # You can tag your image
+    container_name: collabflow_app
+    restart: unless-stopped
+    ports:
+      # Map host ports to container ports
+      # Format: HOST:CONTAINER
+      - "3000:3000" # Next.js App (HTTP)
+      - "2222:22"   # SSH for Git (use a non-standard port on the host)
+      # Add HTTPS mapping later if you set up a proxy or direct HTTPS in Node
+      # - "443:443"
+    environment:
+      # Pass environment variables needed at runtime
+      - NODE_ENV=production
+      - PORT=3000
+      - GIT_PROJECT_ROOT=/app/projects
+      - SQLITE_DB_PATH=/app/data/collabflow.db
+      - AUTHORIZED_KEYS_PATH=/app/.ssh/authorized_keys
+      # Add any NEXT_PUBLIC_ or other variables needed by your app
+      # - NEXT_PUBLIC_API_URL=http://localhost:3000/api
+    volumes:
+      # Map host directories to container volumes for persistent data
+      # Format: HOST_PATH:CONTAINER_PATH
+      # Use named volumes for easier management or host paths for direct access
+      - collabflow_projects:/app/projects
+      - collabflow_data:/app/data
+      - collabflow_ssh_keys:/app/.ssh
+      # For development, you might mount your source code:
+      # - .:/app # Mount current directory to /app in container
+      # - /app/node_modules # Prevent host node_modules from overwriting container's
+      # - /app/.next # Prevent host build artifacts from overwriting container's
+
+volumes:
+  collabflow_projects:
+  collabflow_data:
+  collabflow_ssh_keys:
