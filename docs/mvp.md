@@ -89,6 +89,8 @@ The MVP focuses on enabling multiple users to collaborate on documents without r
 
 4.  **Security**
     *   JWT for authentication
+        * Admin login links expire in 1 minute for security
+        * User session JWTs expire in 3 days
     *   HTTPS encryption
     *   Path-based access control for different permission levels
     *   Sanitization of user inputs
@@ -119,6 +121,13 @@ The MVP focuses on enabling multiple users to collaborate on documents without r
     *   `folders`: Folder metadata and access controls
     *   `files`: File metadata, including dependency relationships
     *   `versions`: Version history and commit information
+
+3.  **Timezone Handling**
+    *   All dates are stored in UTC format in the database (ISO 8601)
+    *   Server-side date comparisons are performed using UTC
+    *   Dates are converted to the user's local timezone for display only
+    *   Admin CLI tools show timestamps in the local system timezone
+    *   Web UI shows timestamps in the browser's local timezone
 
 ## User Experience Flow
 
@@ -189,6 +198,8 @@ The MVP focuses on enabling multiple users to collaborate on documents without r
 
 1.  **Authentication**
     *   Secure access via JWT token or generated link
+    *   Admin login links expire after 1 minute for security
+    *   Session JWTs expire after 3 days of use
     *   Personalized dashboard with activity overview and statistics
     *   Clear indication of administrator privileges
 

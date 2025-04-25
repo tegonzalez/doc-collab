@@ -30,10 +30,10 @@ export default function RootLayout({
     return (
         <html lang="en">
             <body className={`${inter.className} ${geistSans.variable} ${geistMono.variable} antialiased relative`}>
-                <NotificationsProvider> {/* Wrap with Provider */} 
+                <NotificationsProvider>
                     <FloatingToolbar />
-                    <NotificationsPanel /> {/* Add Notifications Panel */} 
-                    <main className="min-h-screen pt-16 px-4"> {/* Add padding to prevent overlap */} 
+                    <NotificationsPanel />
+                    <main className="min-h-screen pt-16 px-4">
                       {children}
                     </main>
                     <Toaster />

@@ -170,3 +170,48 @@ npm run dev
 
 # Access: http://localhost:8080 (or configured port)
 ```
+
+### Running the Application
+
+1.  **Build the container:**
+    ```bash
+    docker-compose build
+    ```
+2.  **Run the container:**
+    ```bash
+    docker-compose up -d
+    ```
+    *   The application will be available at `http://localhost:3000`.
+    *   The Git SSH server will be available at `ssh://<user>@localhost:2222/app/projects/main-project.git` (or other project names).
+    *   Mapped volumes ensure data persistence:
+        *   `./projects_data:/app/projects` (Git repositories)
+        *   `./db_data:/app/data` (SQLite database)
+        *   `./ssh_keys:/app/.ssh` (User SSH keys for Git access - place public keys in `authorized_keys` here)
+
+3.  **Initial Admin Setup:**
+    *   To log in as the initial admin user, you need to generate a one-time authentication link.
+    *   Run the following command in your terminal (while the container is running or if running non-containerized):
+        ```bash
+        npm run gen-admin-link
+        ```
+    *   This script will:
+        *   Ensure the admin user (ID 1) exists in the database.
+        *   Generate a unique, single-use authentication token.
+        *   Print a URL to the console (e.g., `http://localhost:3000/api/auth/validate?token=...`).
+    *   **Copy the generated URL and paste it into your browser.** This will authenticate you as the admin and redirect you to the dashboard.
+    *   The link expires after 60 minutes.
+
+### Non-Containerized Setup (Alternative)
+
+If you prefer not to use Docker:
+
+1.  **Prerequisites:** Node.js (v20+), Git, SQLite3, Pandoc, OpenSSH.
+2.  **Install dependencies:**
+    ```bash
+    # Clone the repository
+    git clone <repository_url>
+    cd collabflow
+
+    # Install dependencies
+    npm ci
+    ```

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -6,12 +5,12 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PanelRightClose, X, LayoutDashboard, Settings, LucideIcon } from 'lucide-react';
 import * as TooltipPrimitive from "@radix-ui/react-tooltip"; // Import primitive directly
+import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import {
     Tooltip,
     TooltipContent,
-    // TooltipProvider, // Remove this import
     TooltipTrigger,
 } from '@/components/ui/tooltip'; // Keep other Tooltip components
 import { cn } from '@/lib/utils';
@@ -140,11 +139,16 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({ className }) =
                             transition={{ duration: 0.2, delay: 0.1 }}
                             className="flex flex-col items-center space-y-2 pt-2 border-t border-border mt-2"
                         >
-                             <ToolbarButton
-                                 label="Dashboard"
-                                 icon={LayoutDashboard}
-                                 onClick={() => handleNavigate('/')}
-                             />
+                             <Tooltip>
+                                 <TooltipTrigger asChild>
+                                     <Link href="/dashboard" className="flex items-center justify-center w-10 h-10 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                                         <LayoutDashboard size={20} />
+                                     </Link>
+                                 </TooltipTrigger>
+                                 <TooltipContent side="right">
+                                     <p>Dashboard</p>
+                                 </TooltipContent>
+                             </Tooltip>
                              <ToolbarButton
                                  label="Settings"
                                  icon={Settings}

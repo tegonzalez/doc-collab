@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, createContext, useContext, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Bell, X, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';

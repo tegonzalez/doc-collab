@@ -1,13 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Textarea } from "../../components/ui/textarea";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../components/ui/card";
+import { useToast } from "../../hooks/use-toast";
 
 export default function SettingsPage() {
     const { toast } = useToast();
@@ -43,7 +42,7 @@ export default function SettingsPage() {
                             <Input
                                 id="displayName"
                                 value={displayName}
-                                onChange={(e) => setDisplayName(e.target.value)}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDisplayName(e.target.value)}
                                 placeholder="Enter your display name"
                             />
                         </div>
@@ -65,7 +64,7 @@ export default function SettingsPage() {
                              <Textarea
                                 id="sshKeys"
                                 value={sshKeys}
-                                onChange={(e) => setSshKeys(e.target.value)}
+                                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSshKeys(e.target.value)}
                                 placeholder="Paste your SSH public keys here (one per line)"
                                 rows={6}
                                 className="font-mono text-sm" // Style for keys

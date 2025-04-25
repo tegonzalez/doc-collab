@@ -1,9 +1,9 @@
 'use client';
 
 // import { useState } from 'react'; 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-// import { Separator } from '@/components/ui/separator';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+// import { Separator } from './ui/separator';
 // import {
 //     Sheet,
 //     SheetContent,
@@ -11,28 +11,28 @@ import { Input } from '@/components/ui/input';
 //     SheetHeader,
 //     SheetTitle,
 //     SheetTrigger,
-// } from '@/components/ui/sheet'; 
-// import { Skeleton } from '@/components/ui/skeleton'; 
+// } from './ui/sheet'; 
+// import { Skeleton } from './ui/skeleton'; 
 // import {
 //     Tooltip,
 //     TooltipContent,
 //     TooltipProvider,
 //     TooltipTrigger,
-// } from '@/components/ui/tooltip'; 
-// import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; 
-// import { ScrollArea } from '@/components/ui/scroll-area'; 
-// import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"; 
-// import { Label } from "@/components/ui/label"; 
-// import { Textarea } from "@/components/ui/textarea"; 
-// import { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table"; 
-// import { Badge } from "@/components/ui/badge"; 
+// } from './ui/tooltip'; 
+// import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'; 
+// import { ScrollArea } from './ui/scroll-area'; 
+// import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog"; 
+// import { Label } from "./ui/label"; 
+// import { Textarea } from "./ui/textarea"; 
+// import { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "./ui/table"; 
+// import { Badge } from "./ui/badge"; 
 import {
     Accordion,
     AccordionContent,
     AccordionItem,
     AccordionTrigger,
-} from "@/components/ui/accordion"; 
-// import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; 
+} from "./ui/accordion"; 
+// import { Alert, AlertDescription, AlertTitle } from "./ui/alert"; 
 // import { type DocumentFormat } from "@/services/pandoc"; 
 // import {
 //     DropdownMenu,
@@ -47,14 +47,14 @@ import {
 //     DropdownMenuSubContent,
 //     DropdownMenuSubTrigger,
 //     DropdownMenuTrigger,
-// } from "@/components/ui/dropdown-menu"; 
-// import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; 
-// import { Calendar } from "@/components/ui/calendar"; 
+// } from "./ui/dropdown-menu"; 
+// import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover"; 
+// import { Calendar } from "./ui/calendar"; 
 // import { cn } from "@/lib/utils";
 import { Activity, TreePalm, Upload } from "lucide-react"; // Removed unused icons
-// import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"; 
+// import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./ui/alert-dialog"; 
 // import { AspectRatio } from "./ui/aspect-ratio"; 
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "../hooks/use-toast";
 import ProjectTreeView from './ProjectTreeView'; // Import the new component
 
 // const PROJECT_ID = "project-1"; // Removed unused variable

@@ -5,6 +5,7 @@ import { Tree, NodeRendererProps, TreeApi, NodeApi } from "react-arborist";
 import { Plus, Edit, Folder, File, FolderOpen } from "lucide-react";
 import { useNotifications } from "@/components/ui/NotificationsPanel";
 import { cn } from "@/lib/utils";
+import { Task } from "@/lib/queue/interface";
 
 interface TreeNode {
   id: string;
@@ -262,6 +263,30 @@ function Node({ node, style, dragHandle, tree, setTreeData }: CustomNodeRenderer
       </div>
     </div>
   );
+}
+
+// Placeholder for API call function
+async function apiCreateProject(projectName: string): Promise<Task> {
+  const response = await fetch('/api/projects', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ projectName }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Failed to create project and parse error response.' }));
+    console.error('API Error Data:', errorData);
+    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+  }
+
+  // Expecting 202 Accepted with the initial task object
+  if (response.status !== 202) {
+      console.warn(`Expected status 202 but got ${response.status}`);
+      // Attempt to parse body anyway, might contain useful info or the task
+  }
+  return await response.json() as Task;
 }
 
 export default function ProjectTreeView() {

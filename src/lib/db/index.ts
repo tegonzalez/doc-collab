@@ -1,33 +1,62 @@
 // src/lib/db/index.ts
-// Placeholder for SQLite database interaction logic
-// import Database from 'better-sqlite3';
+// SQLite database interaction logic
+import Database from 'better-sqlite3';
+import path from 'path';
+import fs from 'fs';
 
-// const dbPath = process.env.SQLITE_DB_PATH || '/app/data/collabflow.db';
-// let dbInstance: Database.Database | null = null;
+// Initialize database connection
+const DB_PATH = process.env.DB_PATH || path.join(process.cwd(), 'data', 'collabflow.db');
 
-// export function getDb() {
-//   if (!dbInstance) {
-//     try {
-//       // Ensure directory exists (might be needed on first run)
-//       // Consider moving this logic to app startup or entrypoint
-//       // require('fs').mkdirSync(require('path').dirname(dbPath), { recursive: true });
-//       // dbInstance = new Database(dbPath, { verbose: console.log }); // verbose for debugging
-//       console.log(`Placeholder: Would connect to SQLite at ${dbPath}`);
-//       // TODO: Run migrations (using a library like node-sqlite3-migrations or custom script)
-//     } catch (error) {
-//       console.error("Failed to connect to SQLite:", error);
-//       throw error; // Re-throw or handle appropriately
-//     }
-//   }
-//   // return dbInstance;
-//   return null; // Return null for now
-// }
+// Ensure the data directory exists
+const dataDir = path.dirname(DB_PATH);
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+  console.log(`Created data directory at ${dataDir}`);
+}
 
-// // Optional: Add functions for common queries, e.g., getUser, updateLink, etc.
+let db: Database.Database;
+
+try {
+  // Use type assertion to avoid constructor type issues
+  db = new (Database as any)(DB_PATH);
+  console.log(`SQLite database connected at ${DB_PATH}`);
+} catch (error) {
+  console.error('Failed to connect to SQLite database:', error);
+  throw error;
+}
+
+// Initialize database schema if needed
+const initializeSchema = () => {
+  const userTableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users'").get();
+  
+  if (!userTableExists) {
+    db.exec(`
+      CREATE TABLE users (
+        id TEXT PRIMARY KEY,
+        display_name TEXT,
+        email TEXT UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        ssh_keys TEXT
+      );
+      
+      CREATE TABLE shared_links (
+        id TEXT PRIMARY KEY,
+        project_id TEXT,
+        path TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_by TEXT,
+        expires_at TIMESTAMP,
+        access_count INTEGER DEFAULT 0,
+        FOREIGN KEY (created_by) REFERENCES users(id)
+      );
+    `);
+    console.log('Database schema initialized');
+  }
+};
+
+// Initialize schema on module import
+initializeSchema();
+
+export { db };
 
 console.log("Placeholder: src/lib/db/index.ts loaded");
-
-export function getDb() {
-    console.warn("Placeholder: getDb() called, returning null.");
-    return null;
-}

@@ -1,7 +1,7 @@
 <!--
 Directive: Do not add a "Next Steps" section to this document.
 Derive next steps by reviewing this progress file (last steps completed)
-and cross-referencing with the design goals in `mvp.md`.
+and cross-referencing with the design goals in `docs/mvp.md`.
 -->
 
 # Project Progress Report
@@ -170,3 +170,105 @@ Tasks related to `mvp.md` section 1.2 initiated:
     *   Visual styling of tree view and inline edit textbox needs improvement.
     *   Inline edit box for new projects appears incorrectly formatted (icon, default name, textbox with default name again) instead of `<icon/> <textbox value='Untitled'/>`.
     *   Project name validation on submit (empty, invalid characters, duplicates) is missing.
+
+## Session 4: Authentication System Fixes
+
+### Authentication Issues (Edge Runtime Compatibility)
+
+*   **Issue:** Authentication was broken due to incompatibility between `jsonwebtoken` and Next.js Edge Runtime.
+*   **Error Detail:** The middleware was failing with the error: "The edge runtime does not support Node.js 'crypto' module."
+*   **Root Cause:** Next.js middleware runs in Edge Runtime, which doesn't support Node.js native modules like `crypto` that are used by `jsonwebtoken`.
+*   **Implementation:**
+    * Replaced `jsonwebtoken` with `jose` (an isomorphic JWT library compatible with Edge Runtime)
+    * Installed jose package: `npm install jose@6.0.10 --save-exact`
+    * Updated middleware, validate route, and admin link generator to use jose
+    * Fixed userId type handling to ensure consistent integer representation
+
+### Authentication Design & Implementation
+
+*   **Link Token Authentication:**
+    *   Uses a secure, one-time authentication link system (no username/password)
+    *   Admin login links expire in 1 minute for security (changed from previous 7-day expiration)
+    *   Links are generated via the `generate-admin-link.mjs` script
+    *   Links validated via `/api/auth/validate` API route
+    *   Database record for tokens deleted after successful use
+
+*   **Session Management:**
+    *   After link validation, creates a JWT session token containing only the user ID
+    *   Session cookies expire after 3 days (reduced from 7 days for security)
+    *   Cookies set with proper security attributes (httpOnly, secure in production, sameSite)
+    *   Uses the same shared JWT_SECRET across the application (configurable via environment variable)
+
+*   **Protected Routes:**
+    *   Middleware intercepts all requests to check for valid session cookies
+    *   Unprotected paths explicitly defined: '/', '/auth/error', '/api/auth/validate', '/api/health'
+    *   Invalid or missing sessions redirect to the home page
+    *   User ID added to request headers for downstream API routes
+
+*   **Error Handling:**
+    *   Created dedicated `/auth/error` page to display authentication errors
+    *   Uses URL parameters to pass error messages between routes
+    *   Provides clear, user-friendly error messages and a return link
+
+*   **Welcome Experience:**
+    *   Added welcome parameter to dashboard redirect after successful authentication
+    *   Created welcome alert banner on dashboard that auto-dismisses after 10 seconds
+    *   Implemented welcome notification in the notifications panel
+    *   Improves UX by confirming successful authentication
+
+### Data Handling Improvements
+
+*   **Type Safety:**
+    *   Added explicit userId parsing to ensure consistent integer handling (`parseInt(userId.toString(), 10)`)
+    *   Fixed issue where SQLite integer IDs were being treated as floats in JS/TS
+    *   Updated all authentication-related code to maintain consistent userId types
+
+*   **Date/Time Handling:**
+    *   All database dates are stored in UTC ISO 8601 format
+    *   Added explicit UTC date comparisons for token expiration checks
+    *   Added debugging logs for comparing timestamps
+    *   Client-side timestamps displayed in local timezone
+
+### UI Enhancements
+
+*   **Dashboard Page:**
+    *   Improved layout with a grid of cards for key dashboard sections
+    *   Added welcome alert for newly authenticated users
+    *   Integrated ProjectExplorer component 
+
+*   **Auth Error Page:**
+    *   Created dedicated error page with consistent styling
+    *   Uses shadcn/ui components for consistent look and feel
+    *   Displays clear error messages passed via URL parameters
+
+*   **Splash Page:**
+    *   Added clarification about authentication redirect
+    *   Improved instructions for first-time users
+
+### Learnings & Design Decisions
+
+*   **Edge Runtime Compatibility:**
+    *   Next.js middleware requires isomorphic libraries compatible with Edge Runtime
+    *   Standard Node.js crypto modules are not available in Edge Runtime
+    *   Jose library provides a compatible alternative to jsonwebtoken
+
+*   **Data Type Consistency:**
+    *   SQLite stores userId as INTEGER but JavaScript might interpret as float (e.g., "1.0")
+    *   Explicit type conversion (`parseInt()`) is necessary to ensure consistent type handling
+    *   All userId values should be parsed to integers before use, especially for JWT payloads
+
+*   **Security Considerations:**
+    *   Admin login links lifespan reduced to 1 minute (was 7 days)
+    *   Session duration reduced to 3 days (was 7 days)
+    *   One-time use tokens deleted immediately after use
+    *   No plaintext passwords stored anywhere in the system
+
+*   **User Experience Priority:**
+    *   Welcome notifications and banners improve the authentication experience
+    *   Clear error messages help users understand authentication issues
+    *   Consistent styling across auth-related pages enhances professionalism
+
+*   **Future Authentication Scalability:**
+    *   The authentication system is designed to support multiple users
+    *   Display names retrieved from database, not hardcoded in JWT
+    *   System ready for future enhancements like email-based authentication

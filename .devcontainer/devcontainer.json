@@ -45,10 +45,7 @@
 
   // Run commands after the container is created but before VS Code attaches.
   // Use this to install dependencies leveraging the node_modules volume cache.
-  "postCreateCommand": "npm install",
-
-  // Set the user VS Code should connect as. Matches the default user in the base image.
-  "remoteUser": "node"
+  "postCreateCommand": "npm install"
 
   // Optional: Uncomment the next line if you want to keep the container running
   // even after closing VS Code. Requires Docker Desktop settings adjustment.
