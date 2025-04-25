@@ -154,6 +154,7 @@ Tasks related to `mvp.md` section 1.2 initiated:
     *   Implement a dropdown panel from the top-right.
     *   Trigger button shows unread count badge.
     *   Notifications are invasive. They are reserved for highly important and helpful messages. Use logs for informational. They must be human-readable, brief yet technically detailed, and clearly inform the user.
+    *   **Directive Clarification:** Notifications should *not* be used for routine, expected actions like successful file deletions or simple UI state changes. Their primary use is for significant events: validation errors, background task completions (success or failure), or critical system alerts.
 *   **Project Creation Workflow:**
     *   Adding a project via the Tree view must trigger a backend task.
     *   This task eventually runs `git init --bare` for the new project.
@@ -272,3 +273,69 @@ Tasks related to `mvp.md` section 1.2 initiated:
     *   The authentication system is designed to support multiple users
     *   Display names retrieved from database, not hardcoded in JWT
     *   System ready for future enhancements like email-based authentication
+
+## Session 5: Git SSH ACL and Project Creation
+
+### Git SSH Access Control (ACL)
+
+*   **Goal:** Implement fine-grained access control for Git operations over SSH based on user keys and database permissions.
+*   **Implementation:**
+    *   Created `docker/git-auth-wrapper.sh`: A script executed by `sshd` (via `authorized_keys` `command=`) to act as a gatekeeper.
+        *   Takes the `key_id` provided by `sshd`.
+        *   Queries the SQLite database (`user_ssh_keys`, `ssh_permissions`) to find associated `user_id`(s) and their permissions (`R`, `RW`, `RW+`) for specific projects.
+        *   Parses the `SSH_ORIGINAL_COMMAND` (e.g., `git-upload-pack 'projecthash.git'`, `git-receive-pack 'projecthash.git'`, or `list-repositories`).
+        *   For `list-repositories`: Lists accessible repositories (names and highest permission level) for the user(s).
+        *   For Git commands: Validates the requested repository format (SHA256 hash + `.git`), checks if the user(s) have sufficient permission for the requested operation (Read for `upload-pack`, Write for `receive-pack`), and sets environment variables (`GIT_SSH_PERMISSION_LEVEL`, `GIT_SSH_USER_IDS`) for the hook.
+        *   If authorized, `exec`s the appropriate Git command (`git-upload-pack`, `git-receive-pack`) targeting the correct bare repository path.
+        *   If unauthorized or command is invalid, logs an error and exits.
+    *   Created `docker/git-pre-receive-hook.sh`: A standard Git hook executed by `git-receive-pack` before accepting pushed refs.
+        *   Reads `GIT_SSH_PERMISSION_LEVEL` set by the wrapper script.
+        *   Enforces rules based on permission level:
+            *   Ref Deletion (`newrev` is all zeros): Requires `RW+`.
+            *   Ref Creation (`oldrev` is all zeros): Requires `RW` or `RW+`.
+            *   Non-Fast-Forward Push (potential force push): Requires `RW+`.
+        *   If any check fails, logs an error and exits non-zero to reject the push.
+    *   Updated `docker/setup_git.sh`:
+        *   Copies the new ACL scripts (`git-auth-wrapper.sh`, `git-pre-receive-hook.sh`) to a scripts directory within the container.
+        *   Sets appropriate execute permissions.
+        *   Updates logic to symlink the `git-pre-receive-hook.sh` into the `hooks` directory of existing and newly created bare repositories.
+    *   **Note:** The `authorized_keys` file generation (linking `key_id` to the wrapper script) is handled by application logic (not shown in this diff).
+
+### Project Creation API & Task
+
+*   **Goal:** Allow authenticated users to create new projects via the API, triggering background Git repository initialization.
+*   **Implementation:**
+    *   Updated `src/app/api/projects/route.ts` (POST handler):
+        *   Requires authenticated user (extracts `x-user-id` header set by middleware).
+        *   Generates a unique `projectId` (UUID).
+        *   Generates a repository hash (`repoHash`, SHA256 of user ID + project ID) to create a unique, non-guessable directory name (`<repoHash>.git`).
+        *   Creates manifest data (user ID, project ID, project name, timestamp).
+        *   Enqueues a new task type `CREATE_GIT_REPO_WITH_MANIFEST` with a payload containing all necessary information (user ID, project ID/name, repo hash/path, manifest content).
+        *   Returns `202 Accepted` with the `taskId` and `projectId`.
+    *   Created `src/lib/queue/handlers/createGitRepoHandler.ts`:
+        *   Defines `handleCreateGitRepoWithManifest` function to process the new task type.
+        *   Creates a temporary directory.
+        *   Initializes a standard Git repo inside the temp dir.
+        *   Writes the `manifest.json` file.
+        *   Commits the `manifest.json` file (with generic Git user config).
+        *   Initializes the final *bare* repository at the specified `repoPath`.
+        *   Links the standard Git hooks (e.g., `pre-receive`) into the bare repo's hooks directory.
+        *   Pushes the initial commit from the temporary repo to the bare repo.
+        *   Cleans up the temporary directory.
+        *   Includes basic error handling and logging.
+
+### Minor Fixes & Refinements
+
+*   `src/components/ProjectTreeView.tsx`: Corrected TreeApi import type, refined editing state logic, improved node deletion handling using `tree.delete()` and passing down a memoized `filterOutNode` function.
+*   `src/lib/db/index.ts`: Corrected `better-sqlite3` instantiation using `Sqlite.default` and type assertion for the constructor to align with type definitions.
+*   Removed unused imports/variables and addressed ESLint warnings in various files.
+*   Corrected typos and improved clarity in comments and log messages (e.g., `apos;` in `page.tsx`).
+
+### Learnings & Design Decisions
+
+*   **Git SSH Security:** Using the `command=` directive in `authorized_keys` with a wrapper script provides a robust way to intercept and authorize SSH Git commands based on application-specific logic (database lookups) before Git itself is invoked.
+*   **Git Hooks for Finer Control:** Pre-receive hooks allow enforcement of push policies (like preventing force pushes or deletes) based on the permissions determined by the wrapper script.
+*   **Project Repo Naming:** Using a hash based on user ID and project ID for the repository directory name provides uniqueness and avoids potential collisions or filesystem issues with user-provided names.
+*   **Task Queue for Repo Creation:** Creating a Git repository involves multiple filesystem and potentially time-consuming operations. Offloading this to a background task queue (`CREATE_GIT_REPO_WITH_MANIFEST`) keeps the API request fast and handles the process asynchronously.
+*   **Initial Commit:** Creating an initial commit with a `manifest.json` file ensures the bare repository is not empty and contains essential project metadata from the start.
+*   **TypeScript/Library Integration:** Careful attention is needed for specific library imports and instantiation, especially when dealing with type definitions and potential differences between CommonJS/ESM (`better-sqlite3` example).

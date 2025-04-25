@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { Tree, NodeRendererProps, TreeApi, NodeApi } from "react-arborist";
+import { Tree, NodeRendererProps, type TreeApi, type NodeApi } from "react-arborist"; // Corrected TreeApi import
 import { Plus, Edit, Folder, File, FolderOpen } from "lucide-react";
 import { useNotifications } from "@/components/ui/NotificationsPanel";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,7 @@ interface TreeNode {
   name: string;
   children?: TreeNode[];
   isPending?: boolean;
-  isEditing?: boolean;
+  isEditing?: boolean; // Flag for new node initial state
 }
 
 const initialDataStructure: TreeNode[] = [
@@ -37,13 +37,15 @@ const validateName = (name: string, siblings: NodeApi<TreeNode>[] | null | undef
 
 interface CustomNodeRendererProps extends NodeRendererProps<TreeNode> {
     setTreeData: React.Dispatch<React.SetStateAction<TreeNode[]>>;
+    // Define filterOutNode directly here or pass it down
+    filterOutNode: (nodes: TreeNode[], idToRemove: string) => TreeNode[];
 }
 
-function Node({ node, style, dragHandle, tree, setTreeData }: CustomNodeRendererProps) {
+function Node({ node, style, dragHandle, tree, setTreeData, filterOutNode }: CustomNodeRendererProps) {
   const { addNotification } = useNotifications();
   const isRoot = node.id === "root";
   // Determine if editing from the node state provided by react-arborist
-  const isEditing = node.isEditing;
+  const isNodeApiEditing = node.isEditing;
   const inputRef = useRef<HTMLInputElement>(null);
   // Store the original name when editing starts
   const originalNameRef = useRef<string>(node.data.name);
@@ -52,16 +54,16 @@ function Node({ node, style, dragHandle, tree, setTreeData }: CustomNodeRenderer
 
   // Effect to select text when editing starts (node.isEditing becomes true)
   useEffect(() => {
-    if (isEditing && inputRef.current) {
+    if (isNodeApiEditing && inputRef.current) {
       inputRef.current.select();
       originalNameRef.current = node.data.name; // Store original name on edit start
        // If the node was flagged as new, keep the ref true, otherwise false
       isNewNodeRef.current = node.data.isEditing || false;
-    } else { // Removed the accidental backslash here
+    } else {
         // Reset isNewNode flag when editing stops
         isNewNodeRef.current = false;
     }
-  }, [isEditing, node.data.name, node.data.isEditing]); // Depend on isEditing state
+  }, [isNodeApiEditing, node.data.name, node.data.isEditing]); // Depend on isEditing state
 
   const handleAddClick = (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -109,7 +111,7 @@ function Node({ node, style, dragHandle, tree, setTreeData }: CustomNodeRenderer
 
   const handleEditClick = (event: React.MouseEvent) => {
     event.stopPropagation();
-    if (!isRoot && !node.data.isPending && !isEditing) {
+    if (!isRoot && !node.data.isPending && !isNodeApiEditing) {
         node.edit();
     }
   };
@@ -129,9 +131,10 @@ function Node({ node, style, dragHandle, tree, setTreeData }: CustomNodeRenderer
             // If it was a *new* node and blurred with invalid input, delete it
             if (isNewNodeRef.current) {
                 console.log("Deleting new node due to blur with invalid name:", node.id);
+                // Use tree.delete - the onDelete handler should update the state.
                 tree.delete(node.id);
-                // If tree.delete doesn't update UI reliably, fallback to setTreeData:
-                // setTreeData(currentData => filterOutNode(currentData, node.id));
+                // The check '!deleted || deleted.length === 0' is removed as tree.delete likely returns void or Promise<void>
+                // and the onDelete handler is responsible for updating treeData state.
             } else {
                 // If it was an *existing* node blurred with invalid input, reset it
                 console.log("Resetting existing node due to blur with invalid name:", node.id);
@@ -148,27 +151,31 @@ function Node({ node, style, dragHandle, tree, setTreeData }: CustomNodeRenderer
         // Validation passed
         console.log("Submitting valid name:", trimmedName);
         // Remove the isEditing flag before submitting if it was manually added
-        const finalData = { ...node.data };
-        delete finalData.isEditing;
+        // node.submit will update the internal data, but we might need to clean our state flag
         node.submit(trimmedName);
+        // Optionally update treeData state immediately to remove the isEditing flag visually if node.submit doesn't
+        // setTreeData(currentData => {
+        //     const findAndClean = (nodes: TreeNode[]): TreeNode[] => {
+        //         return nodes.map(n => {
+        //             if (n.id === node.id) {
+        //                 const { isEditing, ...rest } = n;
+        //                 return { ...rest, name: trimmedName }; // Use the validated name
+        //             }
+        //             if (n.children) {
+        //                 const updatedChildren = findAndClean(n.children);
+        //                 if (updatedChildren !== n.children) {
+        //                     return { ...n, children: updatedChildren };
+        //                 }
+        //             }
+        //             return n;
+        //         });
+        //     };
+        //     return findAndClean(currentData);
+        // });
         isNewNodeRef.current = false; // Mark as no longer new
     }
 };
 
-// Helper function to remove node from data structure (if needed as fallback)
-// const filterOutNode = (nodes: TreeNode[], idToRemove: string): TreeNode[] => {
-//     return nodes
-//         .filter(node => node.id !== idToRemove)
-//         .map(node => {
-//             if (node.children) {
-//                 const updatedChildren = filterOutNode(node.children, idToRemove);
-//                 if (updatedChildren !== node.children) {
-//                     return { ...node, children: updatedChildren };
-//                 }
-//             }
-//             return node;
-//         });
-// };
 
   return (
     <div
@@ -176,12 +183,12 @@ function Node({ node, style, dragHandle, tree, setTreeData }: CustomNodeRenderer
       ref={dragHandle}
       className={cn(
         "flex items-center justify-between group px-2 py-1 rounded hover:bg-gray-100",
-        node.state.isSelected && !isEditing ? "bg-blue-100 hover:bg-blue-100" : "", // Avoid blue bg while editing
+        node.state.isSelected && !isNodeApiEditing ? "bg-blue-100 hover:bg-blue-100" : "", // Avoid blue bg while editing
         node.state.isDragging ? "opacity-50" : ""
       )}
       onClick={(e) => {
           // Allow clicking the text area while editing
-          if (!isEditing && (e.target === e.currentTarget || (e.target as HTMLElement).closest('span.folder-toggle-area'))) {
+          if (!isNodeApiEditing && (e.target === e.currentTarget || (e.target as HTMLElement).closest('span.folder-toggle-area'))) {
              if (node.isInternal) {
                  node.toggle();
              }
@@ -189,7 +196,7 @@ function Node({ node, style, dragHandle, tree, setTreeData }: CustomNodeRenderer
       }}
       onDoubleClick={(e) => {
            if ((e.target as HTMLElement).closest('button')) return;
-           if (!isRoot && !isEditing) node.edit();
+           if (!isRoot && !isNodeApiEditing) node.edit();
       }}
     >
       <div className="flex items-center gap-1 flex-grow truncate min-w-0">
@@ -197,7 +204,7 @@ function Node({ node, style, dragHandle, tree, setTreeData }: CustomNodeRenderer
             {node.isLeaf ? <File size={16}/> : node.isOpen ? <FolderOpen size={16}/> : <Folder size={16}/>}
         </span>
 
-        {isEditing ? (
+        {isNodeApiEditing ? (
              <input
                 ref={inputRef}
                 type="text"
@@ -216,8 +223,9 @@ function Node({ node, style, dragHandle, tree, setTreeData }: CustomNodeRenderer
                          e.preventDefault();
                          if (isNewNodeRef.current) {
                              console.log("Deleting new node on Escape:", node.id);
+                             // Use tree.delete - the onDelete handler should update the state.
                              tree.delete(node.id);
-                             // Fallback: setTreeData(currentData => filterOutNode(currentData, node.id));
+                              // The check '!deleted || deleted.length === 0' is removed.
                          } else {
                              console.log("Resetting existing node on Escape:", node.id);
                              node.reset(); // Reverts to original name and exits edit mode
@@ -239,7 +247,7 @@ function Node({ node, style, dragHandle, tree, setTreeData }: CustomNodeRenderer
 
       <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0 pl-1">
         {/* Hide edit button when editing */}
-        {!isRoot && !node.data.isPending && !isEditing && (
+        {!isRoot && !node.data.isPending && !isNodeApiEditing && (
           <button
             onClick={handleEditClick}
             title="Rename Project"
@@ -250,7 +258,7 @@ function Node({ node, style, dragHandle, tree, setTreeData }: CustomNodeRenderer
           </button>
         )}
          {/* Hide add button when editing a node (usually only root adds) */}
-        {isRoot && node.isInternal && !isEditing && (
+        {isRoot && node.isInternal && !isNodeApiEditing && (
            <button
             onClick={handleAddClick}
             title="Add Project"
@@ -265,7 +273,8 @@ function Node({ node, style, dragHandle, tree, setTreeData }: CustomNodeRenderer
   );
 }
 
-// Placeholder for API call function
+// Placeholder for API call function - THIS IS NOT USED ACTIVELY IN THE CURRENT TREE LOGIC
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function apiCreateProject(projectName: string): Promise<Task> {
   const response = await fetch('/api/projects', {
     method: 'POST',
@@ -292,6 +301,23 @@ async function apiCreateProject(projectName: string): Promise<Task> {
 export default function ProjectTreeView() {
     const [treeData, setTreeData] = useState<TreeNode[]>(initialDataStructure);
     const { addNotification } = useNotifications();
+    const treeRef = useRef<TreeApi<TreeNode>>(null); // Add ref for TreeApi
+
+    // Define filterOutNode here so it can be passed down
+    const filterOutNode = useCallback((nodes: TreeNode[], idToRemove: string): TreeNode[] => {
+        return nodes
+            .filter(node => node.id !== idToRemove)
+            .map(node => {
+                if (node.children) {
+                    const updatedChildren = filterOutNode(node.children, idToRemove);
+                    // Only return a new object if children actually changed
+                    if (updatedChildren !== node.children) {
+                        return { ...node, children: updatedChildren };
+                    }
+                }
+                return node;
+            });
+    }, []); // Empty dependency array as it has no external dependencies
 
     const handleRename = useCallback(async (args: { id: string; name: string; node: NodeApi<TreeNode> }) => {
        // This callback runs *after* successful validation and node.submit()
@@ -302,7 +328,8 @@ export default function ProjectTreeView() {
                return nodes.map(n => {
                    if (n.id === args.id) {
                        // Ensure isEditing flag is removed if it was present
-                       const { isEditing, ...rest } = n;
+                       // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                       const { isEditing, ...rest } = n; // Remove isEditing if present
                        return { ...rest, name: args.name };
                    }
                    if (n.children) {
@@ -318,49 +345,33 @@ export default function ProjectTreeView() {
        });
     }, [setTreeData]); // Added setTreeData dependency
 
-    // Define filterOutNode here if used as fallback in Node component
-    const filterOutNode = (nodes: TreeNode[], idToRemove: string): TreeNode[] => {
-        return nodes
-            .filter(node => node.id !== idToRemove)
-            .map(node => {
-                if (node.children) {
-                    const updatedChildren = filterOutNode(node.children, idToRemove);
-                    if (updatedChildren !== node.children) {
-                        return { ...node, children: updatedChildren };
-                    }
-                }
-                return node;
-            });
-    };
-
     const handleDelete = useCallback(async (args: { ids: string[] }) => {
         console.log("Handling delete callback:", args);
+        // Update the state *after* react-arborist has deleted the node internally
         setTreeData(currentData => {
-            // Use the helper function for consistency if defined
+            // Use the memoized helper function
             return filterOutNode(currentData, args.ids[0]); // Assuming single delete for now
-            // Or keep the original filter logic if preferred
         });
          // REMOVED: addNotification({ title: "Project Deleted", details: `Successfully deleted node(s): ${args.ids.join(", ")}`, type: 'info'});
-    }, [setTreeData, addNotification]); // Keep addNotification if other notifications might be added here later
+    }, [setTreeData, addNotification, filterOutNode]); // Add filterOutNode dependency
 
     return (
       <div className="p-2 border rounded-md h-[calc(100vh-150px)] overflow-y-auto text-sm">
         <Tree<TreeNode>
+           ref={treeRef} // Assign ref
            data={treeData}
            width="100%"
-           height={1000}
+           height={1000} // Consider dynamic height or a smaller fixed one
            indent={20}
            rowHeight={32}
            onRename={handleRename} // Callback *after* node.submit()
            onDelete={handleDelete} // Callback *after* tree.delete()
            disableDrag={true}
            disableDrop={true}
-           // Pass setTreeData down so Node can use it for fallback delete if needed
-           // Be cautious if this reintroduces infinite loops
-           // children={NodeRenderer({ setTreeData })} // Alternative way to pass props
         >
            {(props: NodeRendererProps<TreeNode>) => (
-                <Node {...props} setTreeData={setTreeData} />
+                // Pass filterOutNode down to the Node component
+                <Node {...props} setTreeData={setTreeData} filterOutNode={filterOutNode} />
             )}
         </Tree>
       </div>

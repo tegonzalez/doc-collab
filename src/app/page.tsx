@@ -1,4 +1,4 @@
-import Image from 'next/image';
+// import Image from 'next/image'; // Removed unused import
 import Link from 'next/link';
 
 export default function SplashPage() {
@@ -34,12 +34,12 @@ export default function SplashPage() {
         </Link>
         
         <p className="text-sm text-slate-500">
-          (You'll be redirected back here if not authenticated)
+          (You&apos;ll be redirected back here if not authenticated)
         </p>
       </div>
       
       <p className="mt-12 text-sm text-slate-500">
-        First time? We don't store usernames or passwords. Use the command line tool to generate an admin login link.
+        First time? We don&apos;t store usernames or passwords. Use the command line tool to generate an admin login link.
       </p>
     </div>
   );

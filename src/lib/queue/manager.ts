@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+// import crypto from 'crypto'; // Removed unused import
 import { Task, TaskStatus } from './interface';
 import { exec } from 'child_process';
 import util from 'util';
@@ -8,6 +8,7 @@ const execPromise = util.promisify(exec);
 
 // TODO: Integrate with a proper server-side notification mechanism
 // This is a placeholder - useNotifications is a client-side hook.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const sendNotification = (type: 'info' | 'success' | 'error', message: string, details?: string) => {
   console.log(`[Notification] ${type.toUpperCase()}: ${message}${details ? ' - ' + details : ''}`);
 };
@@ -30,7 +31,7 @@ class QueueManager {
   /**
    * Add a task to the queue
    */
-  addTask(type: string, payload: any): string {
+  addTask(type: string, payload: any): string { // eslint-disable-line @typescript-eslint/no-explicit-any
     const id = `task_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const task: Task = {
       id,

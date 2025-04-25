@@ -263,6 +263,7 @@ interface NotificationItemProps {
 
 const NotificationItem: React.FC<NotificationItemProps> = ({ notification }) => {
     // Destructure updated fields including details
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id, title, details, type, timestamp, read } = notification;
 
     // handleMarkRead is removed as marking read happens on panel open

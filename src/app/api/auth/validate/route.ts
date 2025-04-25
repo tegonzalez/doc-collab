@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers'; // Can still read cookies if needed
+// import { cookies } from 'next/headers'; // Can still read cookies if needed
 import { db } from '@/lib/db';
 import * as jose from 'jose';
 
@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
         // Redirect to an error page on the frontend, passing the message
         const url = new URL('/auth/error', request.url); // Assume an error page at /auth/error
         url.searchParams.set('message', message);
+        // console.log(`HandleError redirecting with status: ${status}`); // Keep for debugging if needed
         return NextResponse.redirect(url.toString(), 302);
     };
 
