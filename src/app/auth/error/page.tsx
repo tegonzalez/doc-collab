@@ -1,15 +1,12 @@
-'use client';
-
-import { useSearchParams } from 'next/navigation';
+// Remove 'use client' and dynamic export
+import { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
+import AuthErrorMessage from './AuthErrorMessage'; // Import the new component
 
 export default function AuthErrorPage() {
-  const searchParams = useSearchParams();
-  const errorMessage = searchParams.get('message') || 'An unknown authentication error occurred.';
-
   return (
     <div className="flex items-center justify-center min-h-screen bg-slate-50 p-4">
       <Card className="w-full max-w-md shadow-lg">
@@ -23,9 +20,9 @@ export default function AuthErrorPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="bg-red-50 border border-red-200 rounded-md p-4 text-sm text-red-800">
-            {errorMessage}
-          </div>
+          <Suspense fallback={<div className="flex justify-center items-center p-4"><Loader2 className="h-5 w-5 animate-spin" /></div>}>
+            <AuthErrorMessage />
+          </Suspense>
         </CardContent>
         <CardFooter className="flex justify-center">
           <Button asChild>
@@ -37,4 +34,4 @@ export default function AuthErrorPage() {
       </Card>
     </div>
   );
-} 
+}
