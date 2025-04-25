@@ -40,7 +40,7 @@ export default function DashboardPage() {
       setTimeout(() => {
         addNotification({
           title: `Welcome, ${USER_DISPLAY_NAME}!`,
-          details: 'You have successfully logged in. Your session will expire in 3 days.',
+          details: 'You have successfully logged in.',
           type: 'info'
         });
       }, 500);
@@ -65,23 +65,7 @@ export default function DashboardPage() {
       
       <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-lg font-semibold mb-2">My Projects</h2>
-          <p className="text-gray-600">Your recent projects will appear here.</p>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-lg font-semibold mb-2">Activity</h2>
-          <p className="text-gray-600">Your recent activity will appear here.</p>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-lg font-semibold mb-2">Settings</h2>
-          <p className="text-gray-600">Manage your profile and application settings.</p>
-        </div>
-      </div>
-      
+      {/* ProjectExplorer contains collapsible sections for Activity, Tree, and Upload */}
       <ProjectExplorer />
     </div>
   );

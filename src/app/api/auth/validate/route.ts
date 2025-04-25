@@ -5,7 +5,8 @@ import * as jose from 'jose';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'DEFAULT_VERY_SECRET_KEY_REPLACE_ME'; // Use environment variable!
 const SESSION_COOKIE_NAME = 'collabflow_session';
-const SESSION_DURATION_SECONDS = 3 * 24 * 60 * 60; // 3 days (changed from 7 days)
+// Set a very long expiration - effectively permanent (10 years)
+const PERMANENT_COOKIE_MAX_AGE = 10 * 365 * 24 * 60 * 60; // 10 years in seconds
 
 // Interface representing the token record from the database
 interface AuthToken {
@@ -65,32 +66,32 @@ export async function GET(request: NextRequest) {
         db.prepare('DELETE FROM auth_tokens WHERE token = ?').run(linkToken);
         console.log(`Deleted used auth link token: ${linkToken}`);
 
-        // 2. Generate session JWT containing only the userId (internal identifier)
-        // The display name is fetched from the database when needed in the UI
-        const sessionPayload = { userId }; // userId is parsed to an integer
+        // 2. Generate a new permanent session JWT (different from the link token) 
+        // containing only the userId (internal identifier)
+        const sessionPayload = { userId };
         
-        // Use jose to create the JWT
+        // Create the permanent JWT - deliberately no expiration
         const secretKey = new TextEncoder().encode(JWT_SECRET);
         const sessionToken = await new jose.SignJWT(sessionPayload)
             .setProtectedHeader({ alg: 'HS256' })
-            .setExpirationTime(`${SESSION_DURATION_SECONDS}s`)
             .setIssuedAt()
             .sign(secretKey);
 
-        // 3. Create response and set cookie
-        // Add welcome=true parameter to show welcome notification
+        // 3. Create response and set permanent cookie
         const dashboardUrl = new URL('/dashboard', request.url);
         dashboardUrl.searchParams.set('welcome', 'true');
         
         const response = NextResponse.redirect(dashboardUrl.toString(), 302);
+        
+        // Set a truly permanent cookie with explicit long expiration
         response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
             path: '/',
-            maxAge: SESSION_DURATION_SECONDS,
+            maxAge: PERMANENT_COOKIE_MAX_AGE // Set very long expiration to persist past browser close
         });
-        console.log(`Session cookie set for user ID: ${userId}. Redirecting to dashboard with welcome parameter.`);
+        console.log(`Truly permanent session cookie set for user ID: ${userId} (expires in 10 years). Redirecting to dashboard.`);
 
         return response;
 

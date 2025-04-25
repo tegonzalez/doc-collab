@@ -233,9 +233,11 @@ Tasks related to `mvp.md` section 1.2 initiated:
 ### UI Enhancements
 
 *   **Dashboard Page:**
-    *   Improved layout with a grid of cards for key dashboard sections
-    *   Added welcome alert for newly authenticated users
-    *   Integrated ProjectExplorer component 
+    *   Improved the dashboard structure following the initial design requirements
+    *   Implemented clean layout with the `ProjectExplorer` component containing collapsible sections
+    *   Added welcome alert for newly authenticated users that auto-dismisses after 10 seconds
+    *   ProjectExplorer provides three collapsible sections: Activity, Tree, and Upload
+    *   Main navigation handled by the floating toolbar which includes Dashboard and Settings icons
 
 *   **Auth Error Page:**
     *   Created dedicated error page with consistent styling
@@ -339,3 +341,83 @@ Tasks related to `mvp.md` section 1.2 initiated:
 *   **Task Queue for Repo Creation:** Creating a Git repository involves multiple filesystem and potentially time-consuming operations. Offloading this to a background task queue (`CREATE_GIT_REPO_WITH_MANIFEST`) keeps the API request fast and handles the process asynchronously.
 *   **Initial Commit:** Creating an initial commit with a `manifest.json` file ensures the bare repository is not empty and contains essential project metadata from the start.
 *   **TypeScript/Library Integration:** Careful attention is needed for specific library imports and instantiation, especially when dealing with type definitions and potential differences between CommonJS/ESM (`better-sqlite3` example).
+
+## Session 6: Authentication System Enhancements (Persistent Sessions)
+
+### Authentication Requirements Refinement
+
+*   **User Request:** Implement a truly persistent authentication system with the following characteristics:
+    *   Admin login link tokens have limited expiry as expected (1 minute)
+    *   Upon successful authentication, create a permanent session cookie that never expires
+    *   Remove any expiry notifications from the welcome message
+    *   Add a sign out button to the Settings page
+    *   Ensure cookie persists across browser sessions (beyond browser close)
+    
+*   **Implementation Changes:**
+
+*   **Permanent Session Cookies:**
+    *   Modified the session cookie to never expire automatically by adding explicit 10-year maxAge
+    *   Updated `/api/auth/validate/route.ts` to set long-lived cookie (`PERMANENT_COOKIE_MAX_AGE = 10 * 365 * 24 * 60 * 60`)
+    *   Installed `jose` package to fix module resolution issues for JWT handling
+    *   Removed all JWT expiration time settings, making the token itself permanent (matching cookie behavior)
+    *   Used completely different JWT for session vs. link token for security separation
+
+*   **Sign Out Functionality:**
+    *   Created new API endpoint at `/api/auth/signout/route.ts` to handle cookie deletion
+    *   Added sign out button to Settings page with explicit confirmation message
+    *   Implemented proper error handling and user notifications for sign out process
+    *   Added redirect to home page after successful sign out
+    *   Used Lucide icon (`LogOut`) for visual clarity on the button
+
+*   **Welcome Experience:**
+    *   Removed expiry notification text from welcome message 
+    *   Updated dashboard notification to simply confirm successful login without mentioning expiration
+    *   Maintained visual welcome alert banner with the same 10-second auto-dismiss
+
+### Technical Implementation Details
+
+*   **JWT and Cookie Management:**
+    *   Session JWT now deliberately has no expiration (to match permanent cookie behavior)
+    *   Cookie expiration set with explicit maxAge parameter (315,360,000 seconds = 10 years)
+    *   JWT contains minimal payload (only userId) for security
+    *   Session cookie includes standard security parameters (httpOnly, secure, sameSite)
+
+*   **Sign Out Process Flow:**
+    *   POST request to `/api/auth/signout` endpoint
+    *   Server removes cookie by calling `response.cookies.delete(SESSION_COOKIE_NAME)`
+    *   Success response triggers client-side toast notification
+    *   User redirected to home page after successful sign out
+    *   Errors handled with appropriate user feedback
+
+*   **Code Structure:**
+    *   Cookie name constant shared across relevant files
+    *   Clear, descriptive comments added to explain authentication flow
+    *   Detailed logging for auth-related events
+    *   Consistent naming conventions for auth-related variables
+
+### Learnings & Design Decisions
+
+*   **Cookie Persistence Behavior:**
+    *   Cookies without maxAge/expires are "session cookies" that are deleted when browser closes
+    *   To persist beyond browser closure, cookies must have explicit expiration date
+    *   Setting extremely long maxAge (10 years) creates effectively permanent cookies
+    *   Different browsers may handle cookie persistence slightly differently
+
+*   **Authentication Best Practices:**
+    *   Permanent sessions increase convenience but should be balanced with security
+    *   Sign out functionality is essential for user control over their sessions
+    *   Clear session state indicators help users understand their authentication status
+    *   Permanent sessions require secure implementation to avoid token theft
+
+*   **User Experience Improvements:**
+    *   Authentication user experience should be seamless but explicit
+    *   Sign out experience should be clear and provide confirmation
+    *   Settings organized by category (Profile, SSH Keys, Account) for clarity
+    *   Destructive actions (sign out) styled distinctly (red/destructive variant)
+
+*   **Security Considerations:**
+    *   Even with permanent cookies, all usual security measures still apply (httpOnly, secure, etc.)
+    *   Manual sign out option gives users control over their session
+    *   One-time link tokens remain strictly time-limited regardless of session persistence
+    *   Clear separation between authentication tokens and session tokens
+

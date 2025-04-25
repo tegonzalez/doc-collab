@@ -80,8 +80,10 @@ export function ProjectExplorer() {
                         <TreePalm className="mr-2 h-5 w-5" /> Project Tree
                     </AccordionTrigger>
                     <AccordionContent>
-                        {/* Replace placeholder with the actual Tree View component */}
-                        <ProjectTreeView />
+                        {/* Tree view with adaptive height - starts compact but can grow */}
+                        <div className="max-h-[400px] overflow-auto">
+                            <ProjectTreeView />
+                        </div>
                     </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="upload">

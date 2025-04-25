@@ -356,16 +356,18 @@ export default function ProjectTreeView() {
     }, [setTreeData, addNotification, filterOutNode]); // Add filterOutNode dependency
 
     return (
-      <div className="p-2 border rounded-md h-[calc(100vh-150px)] overflow-y-auto text-sm">
+      <div className="p-2 border rounded-md overflow-y-auto text-sm">
         <Tree<TreeNode>
            ref={treeRef} // Assign ref
            data={treeData}
            width="100%"
-           height={1000} // Consider dynamic height or a smaller fixed one
+           // Calculate height based on the number of visible nodes, with a minimum height
+           // Count all visible nodes (including root and first level children if expanded)
+           height={Math.max(100, (1 + (treeData[0]?.children?.length || 0)) * 32 + 20)}
            indent={20}
            rowHeight={32}
-           onRename={handleRename} // Callback *after* node.submit()
-           onDelete={handleDelete} // Callback *after* tree.delete()
+           onRename={handleRename}
+           onDelete={handleDelete}
            disableDrag={true}
            disableDrop={true}
         >

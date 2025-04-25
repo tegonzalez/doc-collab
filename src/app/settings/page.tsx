@@ -7,9 +7,12 @@ import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../components/ui/card";
 import { useToast } from "../../hooks/use-toast";
+import { LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function SettingsPage() {
     const { toast } = useToast();
+    const router = useRouter();
     const [displayName, setDisplayName] = useState('Current User Name'); // Replace with actual user data later
     const [sshKeys, setSshKeys] = useState('ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD...'); // Replace with actual keys
 
@@ -25,8 +28,37 @@ export default function SettingsPage() {
         toast({ title: "SSH Keys Saved", description: "SSH public keys updated." });
     };
 
+    const handleSignOut = async () => {
+        try {
+            const response = await fetch('/api/auth/signout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                toast({ 
+                    title: "Signed Out", 
+                    description: "You have been successfully signed out." 
+                });
+                // Redirect to home page after successful sign out
+                router.push('/');
+            } else {
+                throw new Error('Failed to sign out');
+            }
+        } catch (error) {
+            console.error('Sign out error:', error);
+            toast({ 
+                title: "Error", 
+                description: "Failed to sign out. Please try again.", 
+                variant: "destructive" 
+            });
+        }
+    };
+
     return (
-        <div className="container mx-auto p-4 md:p-8 max-w-4xl"> {/* Added container and padding */}
+        <div className="container mx-auto p-4 md:p-8 max-w-4xl">
              <h1 className="text-3xl font-bold mb-6">Settings</h1>
 
              <div className="space-y-8">
@@ -76,6 +108,29 @@ export default function SettingsPage() {
                     </CardContent>
                     <CardFooter>
                         <Button onClick={handleSaveSshKeys}>Save SSH Keys</Button>
+                    </CardFooter>
+                </Card>
+
+                {/* Sign Out Card */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Account</CardTitle>
+                        <CardDescription>Manage your account session.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-muted-foreground mb-4">
+                            Signing out will end your current session and require you to authenticate again with an admin link.
+                        </p>
+                    </CardContent>
+                    <CardFooter>
+                        <Button 
+                            variant="destructive" 
+                            onClick={handleSignOut}
+                            className="flex items-center"
+                        >
+                            <LogOut className="mr-2 h-4 w-4" />
+                            Sign Out
+                        </Button>
                     </CardFooter>
                 </Card>
             </div>
