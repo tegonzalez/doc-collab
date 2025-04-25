@@ -81,3 +81,18 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Add flash animation */
+@layer utilities {
+  @keyframes flash-animation {
+    0%, 100% {
+      box-shadow: 0 0 0 0px hsla(var(--primary), 0.5);
+    }
+    50% {
+       box-shadow: 0 0 0 6px hsla(var(--primary), 0.1);
+    }
+  }
+  .animate-flash {
+    animation: flash-animation 1s ease-out 3; /* Flash 3 times */
+  }
+}

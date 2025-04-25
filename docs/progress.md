@@ -163,3 +163,10 @@ Tasks related to `mvp.md` section 1.2 initiated:
     *   All shell commands or long-running operations triggered by the server (like `git init`, `pandoc`) must be dispatched to an application-wide task queue.
     *   Tasks must run as an unprivileged user within the container.
     *   The queue should support progress tracking (for future use, e.g., Pandoc progress) and completion status reporting (via Notifications).
+
+## Session 3: Tree View Refinement
+
+*   **Tree View Issues:**
+    *   Visual styling of tree view and inline edit textbox needs improvement.
+    *   Inline edit box for new projects appears incorrectly formatted (icon, default name, textbox with default name again) instead of `<icon/> <textbox value='Untitled'/>`.
+    *   Project name validation on submit (empty, invalid characters, duplicates) is missing.
