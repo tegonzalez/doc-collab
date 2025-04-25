@@ -1,102 +1,150 @@
 import { NextRequest, NextResponse } from 'next/server';
 // import { cookies } from 'next/headers'; // Can still read cookies if needed
 import { db } from '@/lib/db';
+import { getAppSeed, createSessionToken, SESSION_COOKIE_NAME, PERMANENT_COOKIE_MAX_AGE, validateAppSeed } from '@/lib/auth';
 import * as jose from 'jose';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'DEFAULT_VERY_SECRET_KEY_REPLACE_ME'; // Use environment variable!
-const SESSION_COOKIE_NAME = 'collabflow_session';
-// Set a very long expiration - effectively permanent (10 years)
-const PERMANENT_COOKIE_MAX_AGE = 10 * 365 * 24 * 60 * 60; // 10 years in seconds
+// Force Node.js runtime
+export const runtime = 'nodejs';
 
-// Interface representing the token record from the database
-interface AuthToken {
-    token: string;
-    user_id: number; // Internal user identifier (integer in the database)
-    type: 'link' | 'session';
-    expires_at: string; // ISO 8601 format from DB
+const JWT_SECRET = process.env.JWT_SECRET; // Read directly from env
+
+// Add a check to ensure JWT_SECRET is loaded in the API route context
+if (!JWT_SECRET) {
+    console.error('CRITICAL: JWT_SECRET is not set in the API route environment. Check server environment configuration.');
+    // Optionally, throw an error or return a specific response
+    // For now, we'll let the subsequent verification fail, but logging is important.
+} else {
+    // Log the secret being used for verification (partially)
+    const secretForLog = JWT_SECRET.length > 8 ? `${JWT_SECRET.substring(0, 4)}...${JWT_SECRET.substring(JWT_SECRET.length - 4)}` : 'SECRET_TOO_SHORT';
+    console.log(`[API AUTH VALIDATE] Using JWT_SECRET for verification: ${secretForLog}`);
 }
 
 // Route Handler for GET /api/auth/validate?token=...
 export async function GET(request: NextRequest) {
-    const { searchParams } = new URL(request.url);
-    const linkToken = searchParams.get('token');
-
-    const handleError = (message: string, status: number = 400) => {
-        // Redirect to an error page on the frontend, passing the message
-        const url = new URL('/auth/error', request.url); // Assume an error page at /auth/error
-        url.searchParams.set('message', message);
-        // console.log(`HandleError redirecting with status: ${status}`); // Keep for debugging if needed
-        return NextResponse.redirect(url.toString(), 302);
-    };
-
-    if (!linkToken || typeof linkToken !== 'string') {
-        return handleError('Invalid or missing authentication token link.');
+    // Set flag to indicate we're in auth flow to prevent migrations from running
+    if (typeof global !== 'undefined') {
+        // Use unknown for type safety
+        (global as unknown as { IS_AUTH_FLOW?: boolean }).IS_AUTH_FLOW = true;
     }
-
+    
     try {
-        // Find the link token
-        const getTokenStmt = db.prepare('SELECT token, user_id, type, expires_at FROM auth_tokens WHERE token = ? AND type = ?');
-        const tokenRecord = getTokenStmt.get(linkToken, 'link') as AuthToken | undefined;
-
-        if (!tokenRecord) {
-            console.warn(`Auth link token not found or not type 'link': ${linkToken}`);
-            return handleError('Invalid or expired authentication link.');
+        // Extract token from URL query parameters
+        const searchParams = request.nextUrl.searchParams;
+        const token = searchParams.get('token');
+        
+        // Return error if no token provided
+        if (!token) {
+            // Redirect to error page with message
+            return NextResponse.redirect(new URL('/error?type=auth_missing_token', request.url));
         }
-
-        // Check expiration - comparing with UTC dates
-        const now = new Date(); // Current time in local timezone
-        const expiresAt = new Date(tokenRecord.expires_at); // Parse ISO string to date (preserves UTC)
         
-        // Log timestamps for debugging
-        console.log(`Current server time (UTC): ${now.toISOString()}`);
-        console.log(`Token expires at (UTC): ${expiresAt.toISOString()}`);
-        
-        if (now > expiresAt) {
-            console.warn(`Auth link token expired: ${linkToken}`);
-            db.prepare('DELETE FROM auth_tokens WHERE token = ?').run(linkToken);
-            return handleError('Authentication link has expired.');
+        // Verify token using jose
+        let payload;
+        try {
+            // Ensure JWT_SECRET is available before encoding
+            if (!JWT_SECRET) {
+                 console.error('[API AUTH VALIDATE] Attempting verification but JWT_SECRET is missing! Check environment loading.');
+                 // Return a server configuration error immediately
+                 return NextResponse.redirect(new URL('/error?type=server_config_error&detail=jwt_secret_missing', request.url));
+            }
+            const secretKey = new TextEncoder().encode(JWT_SECRET);
+            const { payload: verifiedPayload } = await jose.jwtVerify(token, secretKey);
+            payload = verifiedPayload;
+        } catch (error) {
+            console.error('Token verification failed:', error);
+            return NextResponse.redirect(new URL('/error?type=auth_invalid_token', request.url));
         }
-
-        // --- Link token is valid! --- 
-        // Ensure userId is an integer
-        const userId = parseInt(tokenRecord.user_id.toString(), 10);
-        console.log(`Auth link token validated successfully for user ID: ${userId}`);
-
-        // 1. Delete used link token
-        db.prepare('DELETE FROM auth_tokens WHERE token = ?').run(linkToken);
-        console.log(`Deleted used auth link token: ${linkToken}`);
-
-        // 2. Generate a new permanent session JWT (different from the link token) 
-        // containing only the userId (internal identifier)
-        const sessionPayload = { userId };
         
-        // Create the permanent JWT - deliberately no expiration
-        const secretKey = new TextEncoder().encode(JWT_SECRET);
-        const sessionToken = await new jose.SignJWT(sessionPayload)
-            .setProtectedHeader({ alg: 'HS256' })
-            .setIssuedAt()
-            .sign(secretKey);
-
-        // 3. Create response and set permanent cookie
-        const dashboardUrl = new URL('/dashboard', request.url);
-        dashboardUrl.searchParams.set('welcome', 'true');
+        // Use specific type instead of any
+        const linkPayload = payload as { 
+            userId: number; 
+            type: 'admin_link' | 'user_link'; 
+            appSeed: string; 
+            exp: number 
+        };
         
-        const response = NextResponse.redirect(dashboardUrl.toString(), 302);
+        // Validate token type and app seed
+        if ((linkPayload.type !== 'admin_link' && linkPayload.type !== 'user_link')) {
+            console.error('Token validation failed: Invalid token type', linkPayload.type);
+            return NextResponse.redirect(new URL('/error?type=auth_invalid_token_type', request.url));
+        }
         
-        // Set a truly permanent cookie with explicit long expiration
-        response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
+        // Check if token has expired
+        const now = Math.floor(Date.now() / 1000);
+        if (linkPayload.exp && linkPayload.exp < now) {
+            console.warn(`Token expired at ${new Date(linkPayload.exp * 1000).toISOString()}, current time: ${new Date(now * 1000).toISOString()}`);
+            return NextResponse.redirect(new URL('/error?type=auth_token_expired', request.url));
+        }
+        
+        // Log the full seed values for debugging
+        const tokenSeed = linkPayload.appSeed;
+        const currentAppSeed = getAppSeed();
+        
+        console.log(`[JWT LINK VALIDATION] Token seed: ${tokenSeed} | Current app seed: ${currentAppSeed}`);
+        
+        // Validate application seed in token matches our current seed
+        if (!validateAppSeed(linkPayload.appSeed)) {
+            console.warn('Invalid application seed in token');
+            return NextResponse.redirect(new URL('/error?type=auth_invalid_token_config', request.url));
+        }
+        
+        // Verify the token exists in the database and isn't already used
+        try {
+            // Update the query to work with the actual table structure (without the type column)
+            const tokenRecord = db.prepare('SELECT * FROM auth_tokens WHERE token = ?').get(token);
+            
+            if (!tokenRecord) {
+                console.warn('Token not found in database');
+                return NextResponse.redirect(new URL('/error?type=auth_token_not_found', request.url));
+            }
+            
+            // Check if the token has been used (if the column exists)
+            if (tokenRecord.used) {
+                console.warn('Token has already been used');
+                return NextResponse.redirect(new URL('/error?type=auth_token_already_used', request.url));
+            }
+            
+            // Ensure the token's user ID matches what's in the payload
+            if (parseInt(tokenRecord.user_id, 10) !== parseInt(linkPayload.userId.toString(), 10)) {
+                console.warn('Token user ID mismatch');
+                return NextResponse.redirect(new URL('/error?type=auth_invalid_token', request.url));
+            }
+            
+            // Delete the token to prevent reuse
+            db.prepare('DELETE FROM auth_tokens WHERE token = ?').run(token);
+        } catch (error) {
+            console.error('Database error when validating token:', error);
+            return NextResponse.redirect(new URL('/error?type=server_db_error', request.url));
+        }
+        
+        // Extract and validate userId
+        const userId = parseInt(linkPayload.userId.toString(), 10);
+        if (isNaN(userId)) {
+            console.error('Invalid user ID in token:', linkPayload.userId);
+            return NextResponse.redirect(new URL('/error?type=auth_invalid_token_data', request.url));
+        }
+        
+        // Generate a permanent session token
+        const sessionToken = await createSessionToken(userId);
+        
+        // Create a redirect response with session cookie
+        const response = NextResponse.redirect(new URL('/dashboard?welcome=true', request.url));
+        
+        // Set a permanent session cookie (10 years)
+        response.cookies.set({
+            name: SESSION_COOKIE_NAME,
+            value: sessionToken,
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
             path: '/',
-            maxAge: PERMANENT_COOKIE_MAX_AGE // Set very long expiration to persist past browser close
+            maxAge: PERMANENT_COOKIE_MAX_AGE
         });
-        console.log(`Truly permanent session cookie set for user ID: ${userId} (expires in 10 years). Redirecting to dashboard.`);
-
+        
         return response;
-
-    } catch (error: any) {
-        console.error('[API /api/auth/validate GET] Error:', error);
-        return handleError('An unexpected server error occurred during authentication.', 500);
+    } catch (error) {
+        console.error('Error in token validation:', error);
+        return NextResponse.redirect(new URL('/error?type=server_error', request.url));
     }
 } 

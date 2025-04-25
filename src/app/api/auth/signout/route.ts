@@ -1,26 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { SESSION_COOKIE_NAME } from '@/lib/auth';
+import { NextResponse } from 'next/server';
 
-const SESSION_COOKIE_NAME = 'collabflow_session';
+// Force Node.js runtime
+export const runtime = 'nodejs';
 
-export async function POST(request: NextRequest) {
+export async function POST() {
     try {
-        // Create a response that will delete the session cookie
-        const response = NextResponse.json(
-            { success: true, message: 'Successfully signed out' }, 
-            { status: 200 }
-        );
-
-        // Delete the session cookie
-        response.cookies.delete(SESSION_COOKIE_NAME);
+        console.log('Attempting to sign out user...');
         
-        console.log('User signed out: Session cookie deleted');
+        // Create a response
+        const response = NextResponse.json({ message: 'Signed out successfully' }, { status: 200 });
         
+        // Delete the session cookie on the response
+        response.cookies.set(SESSION_COOKIE_NAME, '', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV !== 'development',
+            maxAge: 0, // Expire the cookie immediately
+            path: '/',
+            sameSite: 'lax',
+        });
+        
+        console.log('User signed out: Session cookie cleared.');
         return response;
     } catch (error) {
-        console.error('[API /api/auth/signout POST] Error:', error);
-        return NextResponse.json(
-            { success: false, message: 'An error occurred during sign out' },
-            { status: 500 }
-        );
+        console.error('Error during signout:', error);
+        return NextResponse.json({ message: 'Sign out failed' }, { status: 500 });
     }
 } 

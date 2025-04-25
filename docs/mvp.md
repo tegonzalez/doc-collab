@@ -60,19 +60,53 @@ The MVP focuses on enabling multiple users to collaborate on documents without r
 │                  Kubernetes Container                   │
 ├─────────────┬─────────────┬─────────────┬──────────────┤
 │  Web Server │ File System │  Database   │    Pandoc    │
-│  (Node.js)  │  Storage    │ (SQLite/    │ Conversion   │
-│             │             │  Firebase)  │              │
+│  (Node.js)  │  Storage    │ (SQLite &   │ Conversion   │
+│             │             │  LokiJS)    │              │
 ├─────────────┴─────────────┴─────────────┴──────────────┤
 │                   Git Version Control                   │
 └─────────────────────────────────────────────────────────┘
 ```
+
+### Critical Priority: Eliminating Edge Runtime
+
+This application is designed as a **single instance** implementation that prioritizes simplicity, reliability, and direct access to server resources. The following are key requirements:
+
+1. **Node.js-Only Runtime**: The application must use standard Node.js runtime exclusively throughout all components
+   * No Edge Runtime components will be used under any circumstances
+   * All middleware and API routes will use the Node.js runtime
+   * No route segmentation or distributed processing is permitted
+
+2. **Direct Database Access**: 
+   * SQLite database must be directly accessible from all application components
+   * LokiJS in-memory cache will be used for metadata with direct filesystem access
+   * No database abstraction layers designed for distributed systems should be introduced
+
+3. **Server Components**:
+   * All components must run in a single container with shared filesystem access
+   * The application must have direct access to Git operations through the filesystem
+   * WebSockets for real-time updates will run in the same instance
+
+4. **Authentication Implementation**:
+   * Single, integrated authentication system using Node.js libraries
+   * No separate auth modules or distributed auth patterns
+   * Sessions will be managed using direct database access with SQLite
+
+This approach ensures maximum simplicity, minimal dependencies, and reliable operation in a self-hosted environment.
+
+5.  **Edge-Incompatible Dependencies**:
+    *   LokiJS for high-performance in-memory database functionality
+    *   Full filesystem access for Git operations
+    *   Native Node.js crypto functionality for JWT operations
+    *   Direct SQLite database access without abstraction
+
+This approach ensures maximum simplicity, minimal dependencies, and reliable operation in a self-hosted environment.
 
 ### Technology Stack
 
 1.  **Backend**
     *   Node.js for server-side logic
     *   Express.js for API endpoints
-    *   SQLite for database (self-contained) or Firebase (for easier scalability)
+    *   SQLite for database (self-contained, single-instance design)
     *   Git for version control
     *   WebSockets for real-time collaboration
 
@@ -88,12 +122,16 @@ The MVP focuses on enabling multiple users to collaborate on documents without r
     *   Support for common file formats (PDF, DOCX, images)
 
 4.  **Security**
-    *   JWT for authentication
-        * Admin login links expire in 1 minute for security
-        * User session JWTs expire in 3 days
-    *   HTTPS encryption
-    *   Path-based access control for different permission levels
-    *   Sanitization of user inputs
+    *   JWT for authentication using Node.js crypto libraries
+        * Admin login links expire in 1 minute for security (generated via CLI tool)
+        * User session JWTs are persistent with 10-year cookies (single-instance design)
+        * All JWT operations rely on a secure app seed stored in environment variables
+    *   HTTPS encryption for all communications
+    *   Path-based access control with clear permission boundaries
+    *   Strict input sanitization across all user-provided data
+    *   Direct database authentication without edge-compatible abstraction layers
+
+This approach ensures maximum simplicity, minimal dependencies, and reliable operation in a self-hosted environment.
 
 ### Data Storage
 
@@ -128,6 +166,15 @@ The MVP focuses on enabling multiple users to collaborate on documents without r
     *   Dates are converted to the user's local timezone for display only
     *   Admin CLI tools show timestamps in the local system timezone
     *   Web UI shows timestamps in the browser's local timezone
+
+4.  **Authentication**
+    *   Node.js-based JWT implementation using three distinct token types:
+        * Admin Link JWT: Generated via CLI with 1-minute expiration
+        * User Link JWT: Generated via web app with 3-day expiration
+        * Session JWT: 10-year persistent cookies created after authentication
+    *   Single sign-on via secure magic links
+    *   Collaborator access via configurable User Link JWTs
+    *   Visual indicators of current user's permission level
 
 ## User Experience Flow
 
@@ -197,11 +244,12 @@ The MVP focuses on enabling multiple users to collaborate on documents without r
 ### Admin User Journey
 
 1.  **Authentication**
-    *   Secure access via JWT token or generated link
+    *   Secure access via Node.js-generated magic link from CLI tool
     *   Admin login links expire after 1 minute for security
-    *   Session JWTs expire after 3 days of use
+    *   Permanent session cookies with 10-year persistence
     *   Personalized dashboard with activity overview and statistics
     *   Clear indication of administrator privileges
+    *   Ability to manually sign out through the Settings page
 
 2.  **Project and Asset Management**
     *   Create new projects, folders, and documents
@@ -231,10 +279,11 @@ The MVP focuses on enabling multiple users to collaborate on documents without r
 ### External Collaborator Journey
 
 1.  **Access**
-    *   Open shared link in browser without registration
-    *   Seamless authentication via session cookies
-    *   Clear indication of assigned permission role
+    *   Open shared link in browser without registration or account creation
+    *   Seamless authentication via permanent session cookies (single-instance design)
+    *   Clear indication of assigned permission role in UI
     *   Personalized welcome based on link configuration
+    *   No expiration for standard access links
 
 2.  **Navigation and Viewing**
     *   Browse accessible projects, folders, and files
@@ -310,12 +359,13 @@ The MVP focuses on enabling multiple users to collaborate on documents without r
 
 *   **1.3: Core Services**
     *   **1.3.1: Administrative Authentication System**
-        *   **1.3.1.1:** Implement secure JWT token generation and validation
-        *   **1.3.1.2:** Create admin user initialization and credential management
-        *   **1.3.1.3:** Set up session management and token refresh mechanism
+        *   **1.3.1.1:** Implement secure JWT token generation and validation using Node.js crypto libraries
+        *   **1.3.1.2:** Create admin user initialization and credential management with direct SQLite access
+        *   **1.3.1.3:** Set up permanent session management with 10-year secure cookies
         *   **1.3.1.4:** Implement access logging for security auditing
-        *   **1.3.1.5:** \[HITL TEST POINT] - Verify ability to locally stage the www site, generate an access token via command-line, paste the link in a browser, and confirm that authentication recognizes the browser session (cookie is persisted correctly)
-        *   **1.3.1.6:** \[HITL TEST POINT] - Verify comprehensive logging of all authentication events, including failed attempts, token generation, and session management
+        *   **1.3.1.5:** Implement explicit sign-out functionality in Settings page
+        *   **1.3.1.6:** \[HITL TEST POINT] - Verify ability to locally stage the www site, generate an access token via command-line, paste the link in a browser, and confirm that authentication recognizes the browser session (permanent cookie is persisted correctly)
+        *   **1.3.1.7:** \[HITL TEST POINT] - Verify comprehensive logging of all authentication events, including failed attempts, token generation, and session management
 
     *   **1.3.2: Real-time Change Notification System**
         *   **1.3.2.1:** Implement WebSocket server for real-time content and status updates
@@ -462,14 +512,14 @@ The MVP focuses on enabling multiple users to collaborate on documents without r
     }
     ```
 
-3.  **Simplified Permission Model**
+3.  **User Link JWT Permission Model**
     ```json
     {
-      "linkToken": "share_token_abc123",
+      "linkToken": "user_link_jwt_abc123",
       "path": "/project/docs",
       "role": "read",  // Options: read, contribute, edit
       "created": "2023-05-01T09:00:00Z",
-      "expires": "2023-06-01T09:00:00Z",
+      "expires": null,  // Default null for permanent access in single-instance approach
       "createdBy": "admin"
     }
     ```
@@ -486,19 +536,19 @@ The MVP focuses on enabling multiple users to collaborate on documents without r
     POST /api/v1/projects/:projectId/:fileId/upload  # Upload new asset to sub-folder (/associate with asset/artifact)
     ```
 
-6.  **Artifact Generation API**
+6. **Artifact Generation API**
     ```
     POST /api/v1/projects/:projectId/:fileId/generate # Generate artifact from source asset/artifact
     ```
 
-7.  **Shareable Link API**
+7.  **User Link JWT API**
     ```
-    POST /api/v1/projects/:projectId/links         # Create new shareable link
-    POST /api/v1/projects/:projectId/:fileId/links # Create new shareable link to sub-folder (/associate with asset/artifact)
-    GET /api/v1/projects/:projectId/links          # List active shareable links
-    GET /api/v1/projects/:projectId/:fileId/links  # Get shareable link details
-    GET /api/v1/projects/:projectId/:linkId        # Get shareable link details
-    DELETE /api/v1/projects/:projectId/:linkId     # Revoke shareable link
+    POST /api/v1/projects/:projectId/links         # Create new User Link JWT
+    POST /api/v1/projects/:projectId/:fileId/links # Create new User Link JWT for sub-folder
+    GET /api/v1/projects/:projectId/links          # List active User Link JWTs
+    GET /api/v1/projects/:projectId/:fileId/links  # Get User Link JWT details
+    GET /api/v1/projects/:projectId/:linkId        # Get specific User Link JWT details
+    DELETE /api/v1/projects/:projectId/:linkId     # Revoke User Link JWT
     ```
 
 8.  **Download API**

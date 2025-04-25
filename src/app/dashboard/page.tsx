@@ -1,7 +1,7 @@
 'use client';
 
+import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { ProjectExplorer } from '../../components/ProjectExplorer';
@@ -12,7 +12,8 @@ import { useNotifications } from '@/components/ui/NotificationsPanel';
 // For now, we're hardcoding the display name for the admin user.
 const USER_DISPLAY_NAME = 'Admin';
 
-export default function DashboardPage() {
+// Create a client component that uses useSearchParams
+function DashboardContent() {
   const searchParams = useSearchParams();
   const showWelcome = searchParams.get('welcome') === 'true';
   const [isWelcomeVisible, setIsWelcomeVisible] = useState(showWelcome);
@@ -68,5 +69,14 @@ export default function DashboardPage() {
       {/* ProjectExplorer contains collapsible sections for Activity, Tree, and Upload */}
       <ProjectExplorer />
     </div>
+  );
+}
+
+// Server component that renders the client component with Suspense boundary
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div>Loading dashboard...</div>}>
+      <DashboardContent />
+    </Suspense>
   );
 }

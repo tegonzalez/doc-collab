@@ -1,34 +1,53 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import Link from 'next/link';
+import React, { Suspense } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-export default function AuthErrorPage() {
+// Error content component that uses useSearchParams
+function AuthErrorContent() {
   const searchParams = useSearchParams();
-  const errorMessage = searchParams.get('message') || 'An unknown authentication error occurred.';
+  const errorMessage = searchParams.get('message') || 'An unknown authentication error occurred';
+  const decodedMessage = decodeURIComponent(errorMessage);
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-50 p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="flex flex-col items-center space-y-2 text-center">
-          <div className="rounded-full bg-red-100 p-3">
-            <AlertTriangle className="h-6 w-6 text-red-600" />
-          </div>
+    <div className="container flex items-center justify-center min-h-screen py-12">
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader>
           <CardTitle className="text-xl font-bold">Authentication Error</CardTitle>
-          <CardDescription className="text-sm text-gray-500">
-            We couldn&apos;t authenticate you
+          <CardDescription>
+            There was a problem with authentication
           </CardDescription>
         </CardHeader>
+        
         <CardContent>
-          <div className="bg-red-50 border border-red-200 rounded-md p-4 text-sm text-red-800">
-            {errorMessage}
-          </div>
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              {decodedMessage}
+            </AlertDescription>
+          </Alert>
+          
+          <p className="text-sm text-muted-foreground mt-4">
+            This could be due to an expired link, invalid token, or server configuration issue.
+            Please try again or contact the administrator if the problem persists.
+          </p>
         </CardContent>
-        <CardFooter className="flex justify-center">
-          <Button asChild>
+        
+        <CardFooter>
+          <Button asChild className="w-full">
             <Link href="/">
               Return to Home
             </Link>
@@ -36,5 +55,18 @@ export default function AuthErrorPage() {
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+// Auth error page that displays error messages
+export default function AuthErrorPage() {
+  return (
+    <Suspense fallback={
+      <div className="container flex items-center justify-center min-h-screen py-12">
+        <div>Loading error information...</div>
+      </div>
+    }>
+      <AuthErrorContent />
+    </Suspense>
   );
 } 

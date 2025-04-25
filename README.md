@@ -52,6 +52,16 @@ docker-compose up -d
 #   (Username is 'node'. Manage keys in volume 'collabflow_ssh_keys')
 ```
 
+**Using the Helper Script:**
+
+Alternatively, you can use the provided helper script to build and run the application with Docker Compose in one step:
+
+```bash
+./scripts/run.sh
+```
+
+This script automatically uses the `./env/app.env` file for configuration and passes any additional arguments (like `--no-cache`) to the `docker-compose build` command.
+
 **Run (Docker):**
 
 ```bash
@@ -170,6 +180,42 @@ npm run dev
 
 # Access: http://localhost:8080 (or configured port)
 ```
+
+### Database Migrations
+
+The application uses the Umzug library to manage database schema changes. Migrations are stored in the `src/lib/db/migrations` directory.
+
+#### Using Migrations
+
+You can manage database migrations using the following npm scripts:
+
+```bash
+# Apply all pending migrations
+npm run db:migrate
+
+# Create a new migration file
+npm run db:migrate:create <migration-name>
+
+# Revert the last applied migration
+npm run db:migrate:revert
+
+# List all migrations and their status
+npm run db:migrate:list
+```
+
+Migrations are automatically applied when the application starts up, but these commands are useful for development and manual database management.
+
+#### Creating New Migrations
+
+The easiest way to create a new migration is to use the built-in command:
+
+```bash
+npm run db:migrate:create add-new-table
+```
+
+This will generate a new migration file with the correct format and boilerplate code for the up and down methods.
+
+Each migration should implement both `up()` for applying changes and `down()` for reverting them. Make sure to use transactions where appropriate to ensure database integrity.
 
 ### Running the Application
 

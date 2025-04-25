@@ -38,7 +38,7 @@ yarn-error.log*
 next-env.d.ts
 
 # Environment variables
-.env.*
-!.env.example
+/env/security.env
+*.bak
 
 .genkit/*
