@@ -5,7 +5,18 @@
 // import simpleGit, { SimpleGit, SimpleGitOptions } from 'simple-git';
 // import path from 'path';
 
-const projectRoot = process.env.GIT_PROJECT_ROOT || '/app/projects';
+// Define a more specific type for commit logs if possible, or use a generic object type
+// For now, using Record<string, unknown> which is safer than any
+interface CommitLogEntry {
+    hash: string;
+    message: string;
+    author: string;
+    date: Date;
+    // Add other potential fields
+}
+
+// Commented out unused variable
+// const projectRoot = process.env.GIT_PROJECT_ROOT || '/app/projects';
 
 // const options: Partial<SimpleGitOptions> = {
 //    baseDir: process.cwd(), // Adjust as needed
@@ -13,13 +24,14 @@ const projectRoot = process.env.GIT_PROJECT_ROOT || '/app/projects';
 //    maxConcurrentProcesses: 6,
 // };
 
-async function getGitInstance(projectId: string): Promise<any | null> {
-    const repoPath = `${projectRoot}/${projectId}.git`; // Path to BARE repo
-    // const git: SimpleGit = simpleGit(repoPath, options);
-    // Need adjustments for bare repo operations (e.g., log, show)
-    console.log(`Placeholder: Would get git instance for ${repoPath}`);
-    return null; // Return null placeholder
-}
+// Removed unused function getGitInstance
+// async function getGitInstance(projectId: string): Promise<Record<string, unknown> | null> { // Changed return type from any
+//     const repoPath = `${projectRoot}/${projectId}.git`; // Path to BARE repo
+//     // const git: SimpleGit = simpleGit(repoPath, options);
+//     // Need adjustments for bare repo operations (e.g., log, show)
+//     console.log(`Placeholder: Would get git instance for ${repoPath}`);
+//     return null; // Return null placeholder
+// }
 
 export async function getFileContent(projectId: string, filePath: string, commitHash: string = 'HEAD'): Promise<string | null> {
     // const git = await getGitInstance(projectId);
@@ -36,15 +48,18 @@ export async function getFileContent(projectId: string, filePath: string, commit
     }
 }
 
-export async function getCommitLog(projectId: string, filePath?: string, maxCount: number = 50): Promise<any[]> {
+// Added ESLint disable comment for unused _maxCount parameter
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function getCommitLog(projectId: string, filePath?: string, _maxCount: number = 50): Promise<CommitLogEntry[]> { // Use defined interface
      // const git = await getGitInstance(projectId);
      // if (!git) return [];
      try {
         console.log(`Placeholder: Would get commit log for ${filePath || 'repo'} in ${projectId}`);
-        const logOptions = ['--max-count=' + maxCount];
-        if (filePath) {
+        // Removed unused variable logOptions
+        // const logOptions = ['--max-count=' + _maxCount]; // Use _maxCount if needed later
+        // if (filePath) {
             // logOptions.push('--', filePath); // Path specifier
-        }
+        // }
         // For bare repo, might need to specify --git-dir or run differently
         // const log = await git.log(logOptions);
         // return log.all;

@@ -5,7 +5,7 @@ import { Project } from '../git/interface';
 // import { walkGitTree, parseCommit } from '../git/server'; // Assuming these exist
 
 // Simple in-memory store
-let projectCache: Map<string, Project> = new Map();
+const projectCache: Map<string, Project> = new Map();
 let cacheStatus = 'stale'; // 'stale', 'building', 'ready'
 
 async function buildCacheForProject(projectId: string): Promise<Project | null> {

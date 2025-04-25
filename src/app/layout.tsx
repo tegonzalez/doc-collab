@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { Inter, Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-import { FloatingToolbar } from '@/components/ui/FloatingToolbar'; // Import the new toolbar
-import { Toaster } from "@/components/ui/toaster"; // Ensure Toaster is here if not already
+import { FloatingToolbar } from '@/components/ui/FloatingToolbar';
+import { Toaster } from "@/components/ui/toaster";
+import { NotificationsProvider, NotificationsPanel } from "@/components/ui/NotificationsPanel"; // Import Notifications
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -28,10 +29,15 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en">
-            <body className={`${inter.className} ${geistSans.variable} ${geistMono.variable} antialiased relative`}> {/* Added relative positioning */}
-                <FloatingToolbar /> {/* Add the toolbar */}
-                <main className="min-h-screen">{children}</main> {/* Wrap children in main */}
-                <Toaster /> {/* Keep toaster */}
+            <body className={`${inter.className} ${geistSans.variable} ${geistMono.variable} antialiased relative`}>
+                <NotificationsProvider> {/* Wrap with Provider */} 
+                    <FloatingToolbar />
+                    <NotificationsPanel /> {/* Add Notifications Panel */} 
+                    <main className="min-h-screen pt-16 px-4"> {/* Add padding to prevent overlap */} 
+                      {children}
+                    </main>
+                    <Toaster />
+                </NotificationsProvider>
             </body>
         </html>
     );

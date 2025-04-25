@@ -71,7 +71,7 @@ export default function SettingsPage() {
                                 className="font-mono text-sm" // Style for keys
                              />
                              <p className="text-xs text-muted-foreground">
-                                 Add your public SSH keys to allow secure access. Each key should start with 'ssh-rsa' or similar.
+                                 Add your public SSH keys to allow secure access. Each key should start with &apos;ssh-rsa&apos; or similar.
                              </p>
                         </div>
                     </CardContent>
